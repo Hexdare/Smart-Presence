@@ -159,6 +159,7 @@ class User(BaseModel):
     role: str  # "teacher" or "student"
     student_id: Optional[str] = None
     class_section: Optional[str] = None  # "A5" or "A6" for students
+    subjects: Optional[List[str]] = None  # List of subjects for teachers
     full_name: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -168,6 +169,7 @@ class UserCreate(BaseModel):
     role: str
     student_id: Optional[str] = None
     class_section: Optional[str] = None
+    subjects: Optional[List[str]] = None
     full_name: str
 
 class UserLogin(BaseModel):
