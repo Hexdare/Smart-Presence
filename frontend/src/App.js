@@ -297,6 +297,43 @@ const Register = ({ setError, error }) => {
                 </div>
               </>
             )}
+            {formData.role === "teacher" && (
+              <div>
+                <Label>Subjects (Select multiple)</Label>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {[
+                    "Mathematics", "Physics", "English", "Basic Electrical Engineering",
+                    "Integrated Circuits", "CAD Lab", "Communication Lab", "Physics Lab",
+                    "BEE Lab", "Production and Manufacturing Engineering"
+                  ].map((subject) => (
+                    <div key={subject} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={`subject-${subject}`}
+                        checked={formData.subjects.includes(subject)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFormData({ ...formData, subjects: [...formData.subjects, subject] });
+                          } else {
+                            setFormData({ ...formData, subjects: formData.subjects.filter(s => s !== subject) });
+                          }
+                        }}
+                        className="rounded border-gray-300"
+                        data-testid={`subject-${subject.replace(/\s+/g, '-').toLowerCase()}`}
+                      />
+                      <Label htmlFor={`subject-${subject}`} className="text-sm font-normal">
+                        {subject}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+                {formData.subjects.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-600">Selected: {formData.subjects.join(", ")}</p>
+                  </div>
+                )}
+              </div>
+            )}
             <Button 
               type="submit" 
               className="w-full bg-indigo-600 hover:bg-indigo-700" 
