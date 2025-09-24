@@ -534,6 +534,124 @@ const TeacherDashboard = ({ user }) => {
   );
 };
 
+const PrincipalDashboard = ({ user }) => {
+  const [activeTab, setActiveTab] = useState("announcements");
+  const [qrSessions, setQrSessions] = useState([]);
+  const [attendanceRecords, setAttendanceRecords] = useState([]);
+  const [timetable, setTimetable] = useState({});
+  const [announcements, setAnnouncements] = useState([]);
+
+  useEffect(() => {
+    fetchQrSessions();
+    fetchAttendanceRecords();
+    fetchTimetable();
+    fetchAnnouncements();
+  }, []);
+
+  const fetchQrSessions = async () => {
+    try {
+      const response = await axios.get(`${API}/qr/sessions`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+      setQrSessions(response.data);
+    } catch (error) {
+      console.error("Error fetching QR sessions:", error);
+    }
+  };
+
+  const fetchAttendanceRecords = async () => {
+    try {
+      const response = await axios.get(`${API}/attendance/records`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+      setAttendanceRecords(response.data);
+    } catch (error) {
+      console.error("Error fetching attendance records:", error);
+    }
+  };
+
+  const fetchTimetable = async () => {
+    try {
+      const response = await axios.get(`${API}/timetable`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+      setTimetable(response.data);
+    } catch (error) {
+      console.error("Error fetching timetable:", error);
+    }
+  };
+
+  const fetchAnnouncements = async () => {
+    try {
+      const response = await axios.get(`${API}/announcements`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+      setAnnouncements(response.data);
+    } catch (error) {
+      console.error("Error fetching announcements:", error);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="text-center">
+        <h2 className="text-3xl font-bold text-gray-900">Principal Dashboard</h2>
+        <p className="mt-2 text-gray-600">Manage school operations and communications</p>
+        <Badge className="mt-2 bg-green-600">Principal</Badge>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-5 bg-white/60 backdrop-blur-sm">
+          <TabsTrigger value="announcements" data-testid="announcements-tab">
+            <Megaphone className="w-4 h-4 mr-2" />
+            Announcements
+          </TabsTrigger>
+          <TabsTrigger value="generate" data-testid="principal-generate-tab">
+            <QrCode className="w-4 h-4 mr-2" />
+            Generate QR
+          </TabsTrigger>
+          <TabsTrigger value="attendance" data-testid="principal-attendance-tab">
+            <Users className="w-4 h-4 mr-2" />
+            Attendance
+          </TabsTrigger>
+          <TabsTrigger value="timetable" data-testid="principal-timetable-tab">
+            <Calendar className="w-4 h-4 mr-2" />
+            Timetable
+          </TabsTrigger>
+          <TabsTrigger value="sessions" data-testid="principal-sessions-tab">
+            <Clock className="w-4 h-4 mr-2" />
+            Sessions
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="announcements">
+          <AnnouncementSection 
+            announcements={announcements} 
+            onAnnouncementCreated={fetchAnnouncements}
+            userRole={user.role}
+          />
+        </TabsContent>
+
+        <TabsContent value="generate">
+          <GenerateQRCard onQrGenerated={fetchQrSessions} />
+        </TabsContent>
+
+        <TabsContent value="attendance">
+          <AttendanceList records={attendanceRecords} />
+        </TabsContent>
+
+        <TabsContent value="timetable">
+          <TimetableManagement timetable={timetable} onTimetableUpdate={fetchTimetable} />
+        </TabsContent>
+
+        <TabsContent value="sessions">
+          <QRSessionsList sessions={qrSessions} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
+
 const GenerateQRCard = ({ onQrGenerated }) => {
   const [formData, setFormData] = useState({
     class_section: "",
