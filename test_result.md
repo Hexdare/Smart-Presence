@@ -152,7 +152,8 @@ test_plan:
   current_focus:
     - "Fix CORS configuration"
     - "Review API URL construction"
-  stuck_tasks: []
+  stuck_tasks: 
+    - "Production deployment routing - API requests not reaching backend server"
   test_all: false
   test_priority: "high_first"
 
