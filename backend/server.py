@@ -637,11 +637,15 @@ async def get_attendance_records(current_user: User = Depends(get_current_user))
     if current_user.role == "student":
         # Students see their own attendance
         records = await db.attendance.find({"student_id": current_user.student_id}).to_list(1000)
-    elif current_user.role == "teacher":
-        # Teachers see attendance for their sessions
-        qr_sessions = await db.qr_sessions.find({"teacher_id": current_user.id}).to_list(1000)
-        session_ids = [session["id"] for session in qr_sessions]
-        records = await db.attendance.find({"qr_session_id": {"$in": session_ids}}).to_list(1000)
+    elif current_user.role in ["teacher", "principal"]:
+        if current_user.role == "principal":
+            # Principals see all attendance records
+            records = await db.attendance.find({}).to_list(1000)
+        else:
+            # Teachers see attendance for their sessions
+            qr_sessions = await db.qr_sessions.find({"teacher_id": current_user.id}).to_list(1000)
+            session_ids = [session["id"] for session in qr_sessions]
+            records = await db.attendance.find({"qr_session_id": {"$in": session_ids}}).to_list(1000)
     else:
         records = []
     
