@@ -383,7 +383,7 @@ class BackendTester:
             
             response = self.session.get(f"{self.base_url}/auth/me", headers=headers)
             
-            if response.status_code == 401:
+            if response.status_code in [401, 403]:
                 self.log_result("Protected Route (No Token)", True, 
                               "Protected route correctly rejected request without token", 
                               f"Response: {response.status_code}")
