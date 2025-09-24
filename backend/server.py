@@ -568,8 +568,8 @@ async def generate_qr_session(qr_data: QRSessionCreate, current_user: User = Dep
 
 @api_router.get("/qr/sessions")
 async def get_teacher_qr_sessions(current_user: User = Depends(get_current_user)):
-    if current_user.role != "teacher":
-        raise HTTPException(status_code=403, detail="Only teachers can view QR sessions")
+    if current_user.role not in ["teacher", "principal"]:
+        raise HTTPException(status_code=403, detail="Only teachers and principals can view QR sessions")
     
     sessions = await db.qr_sessions.find({"teacher_id": current_user.id}).to_list(100)
     return [QRSession(**session) for session in sessions]
