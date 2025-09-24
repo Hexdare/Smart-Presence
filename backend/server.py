@@ -311,7 +311,7 @@ def parse_time_slot(time_slot: str):
             expire_time += timedelta(days=1)
         
         return expire_time
-    except:
+    except Exception:
         # Default to 1 hour from now if parsing fails
         return datetime.now(timezone.utc) + timedelta(hours=1)
 
