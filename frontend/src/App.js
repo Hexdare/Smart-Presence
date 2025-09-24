@@ -888,11 +888,18 @@ const TimetableView = ({ timetable }) => {
                         <div key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded">
                           <span className="font-medium text-sm">{period.time || 'N/A'}</span>
                           <span className="text-sm text-gray-600">{period.subject || 'N/A'}</span>
-                          {period.class && (
-                            <Badge variant="outline" className="text-xs">
-                              {period.class}
-                            </Badge>
-                          )}
+                          <div className="flex space-x-1">
+                            {period.class && (
+                              <Badge variant="outline" className="text-xs">
+                                {period.class}
+                              </Badge>
+                            )}
+                            {period.section && (
+                              <Badge className="text-xs bg-indigo-600">
+                                {period.section}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       ))
                     )}
