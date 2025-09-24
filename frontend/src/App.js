@@ -443,15 +443,17 @@ const Dashboard = ({ user, logout }) => {
 };
 
 const TeacherDashboard = ({ user }) => {
-  const [activeTab, setActiveTab] = useState("generate");
+  const [activeTab, setActiveTab] = useState("announcements");
   const [qrSessions, setQrSessions] = useState([]);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [timetable, setTimetable] = useState({});
+  const [announcements, setAnnouncements] = useState([]);
 
   useEffect(() => {
     fetchQrSessions();
     fetchAttendanceRecords();
     fetchTimetable();
+    fetchAnnouncements();
   }, []);
 
   const fetchQrSessions = async () => {
@@ -487,6 +489,17 @@ const TeacherDashboard = ({ user }) => {
     }
   };
 
+  const fetchAnnouncements = async () => {
+    try {
+      const response = await axios.get(`${API}/announcements`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+      setAnnouncements(response.data);
+    } catch (error) {
+      console.error("Error fetching announcements:", error);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="text-center">
@@ -495,7 +508,11 @@ const TeacherDashboard = ({ user }) => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 bg-white/60 backdrop-blur-sm">
+        <TabsList className="grid w-full grid-cols-5 bg-white/60 backdrop-blur-sm">
+          <TabsTrigger value="announcements" data-testid="teacher-announcements-tab">
+            <Megaphone className="w-4 h-4 mr-2" />
+            Announcements
+          </TabsTrigger>
           <TabsTrigger value="generate" data-testid="generate-tab">
             <QrCode className="w-4 h-4 mr-2" />
             Generate QR
@@ -513,6 +530,14 @@ const TeacherDashboard = ({ user }) => {
             Timetable
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="announcements">
+          <AnnouncementSection 
+            announcements={announcements} 
+            onAnnouncementCreated={fetchAnnouncements}
+            userRole={user.role}
+          />
+        </TabsContent>
 
         <TabsContent value="generate">
           <GenerateQRCard onQrGenerated={fetchQrSessions} />
