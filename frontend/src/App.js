@@ -585,6 +585,7 @@ const PrincipalDashboard = ({ user }) => {
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [timetable, setTimetable] = useState({});
   const [announcements, setAnnouncements] = useState([]);
+  const [showAlertsHistory, setShowAlertsHistory] = useState(false);
 
   useEffect(() => {
     fetchQrSessions();
@@ -638,7 +639,18 @@ const PrincipalDashboard = ({ user }) => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Emergency Alerts Menu Button - Principal has prominent access */}
+      <div className="fixed top-20 right-4 z-50">
+        <Button
+          onClick={() => setShowAlertsHistory(true)}
+          className="w-14 h-14 rounded-full bg-red-600/90 backdrop-blur-sm hover:bg-red-700/95 shadow-xl border-2 border-red-400/30 animate-pulse"
+          data-testid="principal-alerts-button"
+        >
+          <Shield className="w-7 h-7 text-white" />
+        </Button>
+      </div>
+
       <div className="text-center">
         <h2 className="text-3xl font-bold text-gray-900">Principal Dashboard</h2>
         <p className="mt-2 text-gray-600">Manage school operations and communications</p>
@@ -693,6 +705,14 @@ const PrincipalDashboard = ({ user }) => {
           <QRSessionsList sessions={qrSessions} />
         </TabsContent>
       </Tabs>
+
+      {/* Emergency Alerts History Modal */}
+      {showAlertsHistory && (
+        <EmergencyAlertsHistory 
+          onClose={() => setShowAlertsHistory(false)}
+          user={user}
+        />
+      )}
     </div>
   );
 };
