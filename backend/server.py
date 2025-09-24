@@ -651,10 +651,22 @@ async def get_timetable(current_user: User = Depends(get_current_user)):
         return TIMETABLE
 
 # Add CORS middleware BEFORE including router
+cors_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
+# Handle wildcard patterns for Vercel deployment
+allowed_origins = []
+for origin in cors_origins:
+    origin = origin.strip()
+    if origin == '*' or not origin.startswith('https://*.'):
+        allowed_origins.append(origin)
+    else:
+        # For patterns like https://*.vercel.app, we'll use allow_origin_regex
+        continue
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=allowed_origins if allowed_origins != ['*'] else ["*"],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_methods=["*"],
     allow_headers=["*"],
 )
