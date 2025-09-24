@@ -660,35 +660,41 @@ async def get_timetable(current_user: User = Depends(get_current_user)):
             if current_user.class_section in sections:
                 student_timetable[day] = sections[current_user.class_section]
         return student_timetable
-    elif current_user.role == "teacher" and current_user.subjects:
-        # Return filtered timetable for teacher's subjects
-        teacher_timetable = {}
-        teacher_subjects = current_user.subjects
-        
-        for day, sections in TIMETABLE.items():
-            day_classes = []
-            # Check both A5 and A6 sections for teacher's subjects
-            for section_name, periods in sections.items():
-                for period in periods:
-                    # Match subjects (case-insensitive and partial match)
-                    subject_match = False
-                    for teacher_subject in teacher_subjects:
-                        if (teacher_subject.lower() in period["subject"].lower() or 
-                            period["subject"].lower() in teacher_subject.lower() or
-                            period["class"] == teacher_subject):
-                            subject_match = True
-                            break
-                    
-                    if subject_match:
-                        # Add section info to the period
-                        period_with_section = period.copy()
-                        period_with_section["section"] = section_name
-                        day_classes.append(period_with_section)
+    elif current_user.role in ["teacher", "principal"]:
+        if current_user.role == "principal":
+            # Principals see the full timetable
+            return TIMETABLE
+        elif current_user.subjects:
+            # Return filtered timetable for teacher's subjects
+            teacher_timetable = {}
+            teacher_subjects = current_user.subjects
             
-            if day_classes:
-                teacher_timetable[day] = day_classes
-        
-        return teacher_timetable
+            for day, sections in TIMETABLE.items():
+                day_classes = []
+                # Check both A5 and A6 sections for teacher's subjects
+                for section_name, periods in sections.items():
+                    for period in periods:
+                        # Match subjects (case-insensitive and partial match)
+                        subject_match = False
+                        for teacher_subject in teacher_subjects:
+                            if (teacher_subject.lower() in period["subject"].lower() or 
+                                period["subject"].lower() in teacher_subject.lower() or
+                                period["class"] == teacher_subject):
+                                subject_match = True
+                                break
+                        
+                        if subject_match:
+                            # Add section info to the period
+                            period_with_section = period.copy()
+                            period_with_section["section"] = section_name
+                            day_classes.append(period_with_section)
+                
+                if day_classes:
+                    teacher_timetable[day] = day_classes
+            
+            return teacher_timetable
+        else:
+            return {}
     else:
         # Return full timetable as fallback
         return TIMETABLE
