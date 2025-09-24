@@ -1488,4 +1488,311 @@ const TimetableManagement = ({ timetable, onTimetableUpdate }) => {
   );
 };
 
+// Emergency Alert Modal Component
+const EmergencyAlertModal = ({ onClose, user }) => {
+  const [alertType, setAlertType] = useState("");
+  const [description, setDescription] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      await axios.post(`${API}/emergency-alerts`, {
+        alert_type: alertType,
+        description: description || null
+      }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+      
+      setSuccess("Emergency alert sent successfully!");
+      setTimeout(() => {
+        onClose();
+      }, 2000);
+    } catch (error) {
+      setError(error.response?.data?.detail || "Failed to send emergency alert");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+      <Card className="w-full max-w-md mx-4 shadow-2xl border-red-200">
+        <CardHeader className="bg-red-50 border-b border-red-200">
+          <CardTitle className="text-red-800 flex items-center">
+            <AlertTriangle className="w-5 h-5 mr-2" />
+            Emergency Alert
+          </CardTitle>
+          <p className="text-sm text-red-600">This will notify all teachers and the principal immediately</p>
+        </CardHeader>
+        <CardContent className="p-6">
+          {error && (
+            <Alert className="mb-4 border-red-200 bg-red-50">
+              <AlertDescription className="text-red-800">{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {success && (
+            <Alert className="mb-4 border-green-200 bg-green-50">
+              <CheckCircle className="w-4 h-4 text-green-600" />
+              <AlertDescription className="text-green-800">{success}</AlertDescription>
+            </Alert>
+          )}
+
+          {!success && (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label className="text-sm font-semibold text-gray-700">Emergency Type</Label>
+                <div className="mt-2 space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="fire"
+                      value="fire"
+                      checked={alertType === "fire"}
+                      onChange={(e) => setAlertType(e.target.value)}
+                      className="text-red-600"
+                      required
+                    />
+                    <Label htmlFor="fire" className="font-normal">🔥 Fire Emergency</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="unauthorized_access"
+                      value="unauthorized_access"
+                      checked={alertType === "unauthorized_access"}
+                      onChange={(e) => setAlertType(e.target.value)}
+                      className="text-red-600"
+                      required
+                    />
+                    <Label htmlFor="unauthorized_access" className="font-normal">🚨 Unauthorized Access</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="other"
+                      value="other"
+                      checked={alertType === "other"}
+                      onChange={(e) => setAlertType(e.target.value)}
+                      className="text-red-600"
+                      required
+                    />
+                    <Label htmlFor="other" className="font-normal">⚠️ Other Emergency</Label>
+                  </div>
+                </div>
+              </div>
+
+              {alertType === "other" && (
+                <div>
+                  <Label htmlFor="description">Description*</Label>
+                  <textarea
+                    id="description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Please describe the emergency..."
+                    className="w-full mt-1 p-3 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
+                    rows="3"
+                    required={alertType === "other"}
+                  />
+                </div>
+              )}
+
+              <div className="flex space-x-3 pt-4">
+                <Button 
+                  type="submit" 
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold" 
+                  disabled={loading}
+                  data-testid="send-alert-button"
+                >
+                  {loading ? "Sending..." : "Send Alert"}
+                </Button>
+                <Button 
+                  type="button" 
+                  onClick={onClose}
+                  variant="outline"
+                  className="flex-1"
+                  data-testid="cancel-alert-button"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+// Emergency Alerts History Component
+const EmergencyAlertsHistory = ({ onClose, user }) => {
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetchAlerts();
+  }, []);
+
+  const fetchAlerts = async () => {
+    try {
+      const response = await axios.get(`${API}/emergency-alerts`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+      setAlerts(response.data);
+    } catch (error) {
+      setError("Failed to fetch emergency alerts");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateAlertStatus = async (alertId, status) => {
+    try {
+      await axios.put(`${API}/emergency-alerts/${alertId}/status`, {
+        status: status
+      }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+      
+      // Refresh alerts
+      fetchAlerts();
+    } catch (error) {
+      console.error("Failed to update alert status:", error);
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "pending": return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "acknowledged": return "bg-blue-100 text-blue-800 border-blue-200";
+      case "resolved": return "bg-green-100 text-green-800 border-green-200";
+      default: return "bg-gray-100 text-gray-800 border-gray-200";
+    }
+  };
+
+  const getAlertTypeIcon = (alertType) => {
+    switch (alertType) {
+      case "fire": return "🔥";
+      case "unauthorized_access": return "🚨";
+      case "other": return "⚠️";
+      default: return "❗";
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+      <Card className="w-full max-w-4xl max-h-[80vh] mx-4 shadow-2xl">
+        <CardHeader className="bg-gray-50 border-b">
+          <div className="flex justify-between items-center">
+            <CardTitle className="flex items-center text-gray-800">
+              <Shield className="w-5 h-5 mr-2" />
+              Emergency Alerts History
+            </CardTitle>
+            <Button
+              onClick={onClose}
+              variant="outline"
+              size="sm"
+              data-testid="close-alerts-history"
+            >
+              ✕
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-y-auto max-h-[60vh]">
+            {loading ? (
+              <div className="flex items-center justify-center p-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                <span className="ml-2">Loading alerts...</span>
+              </div>
+            ) : error ? (
+              <div className="p-6">
+                <Alert className="border-red-200 bg-red-50">
+                  <AlertDescription className="text-red-800">{error}</AlertDescription>
+                </Alert>
+              </div>
+            ) : alerts.length === 0 ? (
+              <div className="text-center p-8 text-gray-500">
+                <Shield className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <p>No emergency alerts found</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-200">
+                {alerts.map((alert) => (
+                  <div key={alert.id} className="p-4 hover:bg-gray-50">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-3 mb-2">
+                          <span className="text-2xl">{getAlertTypeIcon(alert.alert_type)}</span>
+                          <div>
+                            <h4 className="font-semibold text-gray-900 capitalize">
+                              {alert.alert_type.replace('_', ' ')} Emergency
+                            </h4>
+                            <p className="text-sm text-gray-600">
+                              By {alert.student_name} ({alert.class_section})
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {alert.description && (
+                          <p className="text-sm text-gray-700 mb-2 pl-11">
+                            {alert.description}
+                          </p>
+                        )}
+                        
+                        <div className="flex items-center space-x-4 text-xs text-gray-500 pl-11">
+                          <span>Created: {new Date(alert.created_at).toLocaleString()}</span>
+                          {alert.resolved_at && (
+                            <span>Resolved by: {alert.resolver_name}</span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex flex-col items-end space-y-2">
+                        <Badge className={`${getStatusColor(alert.status)} text-xs px-2 py-1`}>
+                          {alert.status.toUpperCase()}
+                        </Badge>
+                        
+                        {user.role === "principal" && alert.status !== "resolved" && (
+                          <div className="flex space-x-1">
+                            {alert.status === "pending" && (
+                              <Button
+                                onClick={() => updateAlertStatus(alert.id, "acknowledged")}
+                                size="sm"
+                                variant="outline"
+                                className="text-xs px-2 py-1 h-6"
+                              >
+                                Acknowledge
+                              </Button>
+                            )}
+                            <Button
+                              onClick={() => updateAlertStatus(alert.id, "resolved")}
+                              size="sm"
+                              className="text-xs px-2 py-1 h-6 bg-green-600 hover:bg-green-700"
+                            >
+                              Resolve
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
 export default App;
