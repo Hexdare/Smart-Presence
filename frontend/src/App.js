@@ -448,6 +448,7 @@ const TeacherDashboard = ({ user }) => {
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [timetable, setTimetable] = useState({});
   const [announcements, setAnnouncements] = useState([]);
+  const [showAlertsHistory, setShowAlertsHistory] = useState(false);
 
   useEffect(() => {
     fetchQrSessions();
@@ -501,7 +502,18 @@ const TeacherDashboard = ({ user }) => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Emergency Alerts Menu Button */}
+      <div className="fixed top-20 right-4 z-50">
+        <Button
+          onClick={() => setShowAlertsHistory(true)}
+          className="w-12 h-12 rounded-full bg-red-500/90 backdrop-blur-sm hover:bg-red-600/95 shadow-lg border border-red-400/30"
+          data-testid="teacher-alerts-button"
+        >
+          <Shield className="w-6 h-6 text-white" />
+        </Button>
+      </div>
+
       <div className="text-center">
         <h2 className="text-3xl font-bold text-gray-900">Teacher Dashboard</h2>
         <p className="mt-2 text-gray-600">Manage your classes and track attendance</p>
@@ -555,6 +567,14 @@ const TeacherDashboard = ({ user }) => {
           <TimetableView timetable={timetable} />
         </TabsContent>
       </Tabs>
+
+      {/* Emergency Alerts History Modal */}
+      {showAlertsHistory && (
+        <EmergencyAlertsHistory 
+          onClose={() => setShowAlertsHistory(false)}
+          user={user}
+        />
+      )}
     </div>
   );
 };
