@@ -266,6 +266,7 @@ const Register = ({ setError, error }) => {
                 <SelectContent>
                   <SelectItem value="student">Student</SelectItem>
                   <SelectItem value="teacher">Teacher</SelectItem>
+                  <SelectItem value="principal">Principal</SelectItem>
                 </SelectContent>
               </Select>
             </div>
