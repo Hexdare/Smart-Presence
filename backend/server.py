@@ -301,6 +301,11 @@ async def register_user(user_data: UserCreate):
         if user_data.class_section not in ["A5", "A6"]:
             raise HTTPException(status_code=400, detail="Class section must be 'A5' or 'A6'")
     
+    # For teachers, validate required fields
+    if user_data.role == "teacher":
+        if not user_data.subjects or len(user_data.subjects) == 0:
+            raise HTTPException(status_code=400, detail="At least one subject is required for teachers")
+    
     # Create user
     user_dict = user_data.dict()
     user_dict["password_hash"] = get_password_hash(user_data.password)
