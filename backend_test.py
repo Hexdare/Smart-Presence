@@ -390,7 +390,7 @@ class BackendTester:
                 return True
             else:
                 self.log_result("Protected Route (No Token)", False, 
-                              f"Protected route should return 401, got: {response.status_code}", 
+                              f"Protected route should return 401/403, got: {response.status_code}", 
                               f"Response: {response.text}")
                 return False
                 
