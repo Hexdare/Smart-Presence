@@ -398,23 +398,630 @@ class BackendTester:
             self.log_result("Protected Route (No Token)", False, f"Request failed: {str(e)}")
             return False
     
+    def test_principal_registration(self):
+        """Test principal registration endpoint"""
+        print("\n=== Testing Principal Registration ===")
+        
+        try:
+            principal_data = {
+                "username": "principal_test_user",
+                "password": "testpass123",
+                "role": "principal",
+                "subjects": ["Mathematics", "Physics"],  # Optional for principals
+                "full_name": "Test Principal User"
+            }
+            
+            headers = {
+                'Content-Type': 'application/json',
+                'Origin': 'https://code-pi-rust.vercel.app'
+            }
+            
+            response = self.session.post(f"{self.base_url}/auth/register", 
+                                       json=principal_data, headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if 'user_id' in result:
+                    self.log_result("Principal Registration", True, 
+                                  "Principal registered successfully", 
+                                  f"User ID: {result['user_id']}")
+                    return True
+                else:
+                    self.log_result("Principal Registration", False, 
+                                  "Registration response missing user_id", 
+                                  f"Response: {result}")
+                    return False
+            elif response.status_code == 400:
+                result = response.json()
+                if "already registered" in result.get('detail', ''):
+                    self.log_result("Principal Registration", True, 
+                                  "User already exists (expected)", 
+                                  f"Response: {result}")
+                    return True
+                else:
+                    self.log_result("Principal Registration", False, 
+                                  f"Registration failed with validation error: {result.get('detail')}", 
+                                  f"Full response: {result}")
+                    return False
+            else:
+                self.log_result("Principal Registration", False, 
+                              f"Unexpected status code: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Principal Registration", False, f"Request failed: {str(e)}")
+            return False
+
+    def get_auth_token_for_role(self, role):
+        """Get authentication token for specific role"""
+        try:
+            username_map = {
+                "student": "student_test_user",
+                "teacher": "teacher_test_user", 
+                "principal": "principal_test_user"
+            }
+            
+            login_data = {
+                "username": username_map[role],
+                "password": "testpass123"
+            }
+            
+            headers = {'Content-Type': 'application/json'}
+            response = self.session.post(f"{self.base_url}/auth/login", json=login_data, headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result.get('access_token')
+            return None
+        except Exception:
+            return None
+
+    def test_principal_access_teacher_endpoints(self):
+        """Test that principal can access all teacher endpoints"""
+        print("\n=== Testing Principal Access to Teacher Endpoints ===")
+        
+        principal_token = self.get_auth_token_for_role("principal")
+        if not principal_token:
+            self.log_result("Principal Teacher Access", False, "Could not get principal auth token")
+            return False
+        
+        headers = {'Authorization': f'Bearer {principal_token}'}
+        
+        # Test QR generation access
+        try:
+            qr_data = {
+                "class_section": "A5",
+                "subject": "Mathematics",
+                "class_code": "MC",
+                "time_slot": "09:30-10:30"
+            }
+            
+            response = self.session.post(f"{self.base_url}/qr/generate", json=qr_data, headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if 'session_id' in result and 'qr_image' in result:
+                    self.log_result("Principal QR Generation", True, 
+                                  "Principal can generate QR codes", 
+                                  f"Session ID: {result['session_id']}")
+                else:
+                    self.log_result("Principal QR Generation", False, 
+                                  "QR generation response missing required fields", 
+                                  f"Response: {result}")
+                    return False
+            else:
+                self.log_result("Principal QR Generation", False, 
+                              f"QR generation failed: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Principal QR Generation", False, f"Request failed: {str(e)}")
+            return False
+        
+        # Test QR sessions access
+        try:
+            response = self.session.get(f"{self.base_url}/qr/sessions", headers=headers)
+            
+            if response.status_code == 200:
+                sessions = response.json()
+                self.log_result("Principal QR Sessions", True, 
+                              f"Principal can view QR sessions ({len(sessions)} sessions)")
+            else:
+                self.log_result("Principal QR Sessions", False, 
+                              f"QR sessions access failed: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Principal QR Sessions", False, f"Request failed: {str(e)}")
+            return False
+        
+        return True
+
+    def test_principal_full_attendance_records(self):
+        """Test that principal gets full attendance records (not just their own sessions)"""
+        print("\n=== Testing Principal Full Attendance Access ===")
+        
+        principal_token = self.get_auth_token_for_role("principal")
+        teacher_token = self.get_auth_token_for_role("teacher")
+        
+        if not principal_token or not teacher_token:
+            self.log_result("Principal Attendance Access", False, "Could not get required auth tokens")
+            return False
+        
+        try:
+            # Get attendance records as principal
+            principal_headers = {'Authorization': f'Bearer {principal_token}'}
+            principal_response = self.session.get(f"{self.base_url}/attendance/records", headers=principal_headers)
+            
+            # Get attendance records as teacher
+            teacher_headers = {'Authorization': f'Bearer {teacher_token}'}
+            teacher_response = self.session.get(f"{self.base_url}/attendance/records", headers=teacher_headers)
+            
+            if principal_response.status_code == 200 and teacher_response.status_code == 200:
+                principal_records = principal_response.json()
+                teacher_records = teacher_response.json()
+                
+                # Principal should see all records (>= teacher records)
+                if len(principal_records) >= len(teacher_records):
+                    self.log_result("Principal Attendance Access", True, 
+                                  f"Principal sees all attendance records ({len(principal_records)} vs teacher's {len(teacher_records)})")
+                    return True
+                else:
+                    self.log_result("Principal Attendance Access", False, 
+                                  f"Principal sees fewer records than teacher ({len(principal_records)} vs {len(teacher_records)})")
+                    return False
+            else:
+                self.log_result("Principal Attendance Access", False, 
+                              f"Failed to get attendance records (Principal: {principal_response.status_code}, Teacher: {teacher_response.status_code})")
+                return False
+                
+        except Exception as e:
+            self.log_result("Principal Attendance Access", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_principal_full_timetable(self):
+        """Test that principal can see full timetable"""
+        print("\n=== Testing Principal Full Timetable Access ===")
+        
+        principal_token = self.get_auth_token_for_role("principal")
+        if not principal_token:
+            self.log_result("Principal Timetable Access", False, "Could not get principal auth token")
+            return False
+        
+        try:
+            headers = {'Authorization': f'Bearer {principal_token}'}
+            response = self.session.get(f"{self.base_url}/timetable", headers=headers)
+            
+            if response.status_code == 200:
+                timetable = response.json()
+                
+                # Check if timetable has both A5 and A6 sections for multiple days
+                days_with_both_sections = 0
+                for day, sections in timetable.items():
+                    if isinstance(sections, dict) and 'A5' in sections and 'A6' in sections:
+                        days_with_both_sections += 1
+                
+                if days_with_both_sections >= 3:  # Should have multiple days with both sections
+                    self.log_result("Principal Timetable Access", True, 
+                                  f"Principal sees full timetable ({days_with_both_sections} days with both sections)")
+                    return True
+                else:
+                    self.log_result("Principal Timetable Access", False, 
+                                  f"Principal timetable seems limited ({days_with_both_sections} days with both sections)", 
+                                  f"Timetable structure: {list(timetable.keys())}")
+                    return False
+            else:
+                self.log_result("Principal Timetable Access", False, 
+                              f"Timetable access failed: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Principal Timetable Access", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_announcement_creation_teacher(self):
+        """Test announcement creation by teacher"""
+        print("\n=== Testing Announcement Creation by Teacher ===")
+        
+        teacher_token = self.get_auth_token_for_role("teacher")
+        if not teacher_token:
+            self.log_result("Teacher Announcement Creation", False, "Could not get teacher auth token")
+            return False
+        
+        try:
+            announcement_data = {
+                "title": "Test Teacher Announcement",
+                "content": "This is a test announcement from a teacher",
+                "target_audience": "students",
+                "image_data": None
+            }
+            
+            headers = {
+                'Authorization': f'Bearer {teacher_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = self.session.post(f"{self.base_url}/announcements", json=announcement_data, headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if 'announcement_id' in result:
+                    self.log_result("Teacher Announcement Creation", True, 
+                                  "Teacher can create announcements", 
+                                  f"Announcement ID: {result['announcement_id']}")
+                    return True
+                else:
+                    self.log_result("Teacher Announcement Creation", False, 
+                                  "Announcement creation response missing ID", 
+                                  f"Response: {result}")
+                    return False
+            else:
+                self.log_result("Teacher Announcement Creation", False, 
+                              f"Announcement creation failed: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Teacher Announcement Creation", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_announcement_creation_principal(self):
+        """Test announcement creation by principal"""
+        print("\n=== Testing Announcement Creation by Principal ===")
+        
+        principal_token = self.get_auth_token_for_role("principal")
+        if not principal_token:
+            self.log_result("Principal Announcement Creation", False, "Could not get principal auth token")
+            return False
+        
+        try:
+            announcement_data = {
+                "title": "Test Principal Announcement",
+                "content": "This is a test announcement from the principal",
+                "target_audience": "all",
+                "image_data": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+            }
+            
+            headers = {
+                'Authorization': f'Bearer {principal_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = self.session.post(f"{self.base_url}/announcements", json=announcement_data, headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if 'announcement_id' in result:
+                    self.log_result("Principal Announcement Creation", True, 
+                                  "Principal can create announcements with image", 
+                                  f"Announcement ID: {result['announcement_id']}")
+                    return True
+                else:
+                    self.log_result("Principal Announcement Creation", False, 
+                                  "Announcement creation response missing ID", 
+                                  f"Response: {result}")
+                    return False
+            else:
+                self.log_result("Principal Announcement Creation", False, 
+                              f"Announcement creation failed: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Principal Announcement Creation", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_student_announcement_creation_forbidden(self):
+        """Test that students cannot create announcements (403 error)"""
+        print("\n=== Testing Student Announcement Creation (Should Fail) ===")
+        
+        student_token = self.get_auth_token_for_role("student")
+        if not student_token:
+            self.log_result("Student Announcement Forbidden", False, "Could not get student auth token")
+            return False
+        
+        try:
+            announcement_data = {
+                "title": "Test Student Announcement",
+                "content": "This should not be allowed",
+                "target_audience": "all"
+            }
+            
+            headers = {
+                'Authorization': f'Bearer {student_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = self.session.post(f"{self.base_url}/announcements", json=announcement_data, headers=headers)
+            
+            if response.status_code == 403:
+                self.log_result("Student Announcement Forbidden", True, 
+                              "Students correctly forbidden from creating announcements")
+                return True
+            else:
+                self.log_result("Student Announcement Forbidden", False, 
+                              f"Expected 403, got {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Student Announcement Forbidden", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_announcement_listing_filtering(self):
+        """Test announcement listing with proper filtering based on user role and target audience"""
+        print("\n=== Testing Announcement Listing and Filtering ===")
+        
+        # Test different roles see appropriate announcements
+        roles_to_test = ["student", "teacher", "principal"]
+        all_passed = True
+        
+        for role in roles_to_test:
+            token = self.get_auth_token_for_role(role)
+            if not token:
+                self.log_result(f"{role.title()} Announcement Listing", False, f"Could not get {role} auth token")
+                all_passed = False
+                continue
+            
+            try:
+                headers = {'Authorization': f'Bearer {token}'}
+                response = self.session.get(f"{self.base_url}/announcements", headers=headers)
+                
+                if response.status_code == 200:
+                    announcements = response.json()
+                    self.log_result(f"{role.title()} Announcement Listing", True, 
+                                  f"{role.title()} can view announcements ({len(announcements)} announcements)")
+                else:
+                    self.log_result(f"{role.title()} Announcement Listing", False, 
+                                  f"Announcement listing failed: {response.status_code}", 
+                                  f"Response: {response.text}")
+                    all_passed = False
+                    
+            except Exception as e:
+                self.log_result(f"{role.title()} Announcement Listing", False, f"Request failed: {str(e)}")
+                all_passed = False
+        
+        return all_passed
+
+    def test_announcement_target_audiences(self):
+        """Test different target audiences: 'all', 'students', 'teachers', 'A5', 'A6'"""
+        print("\n=== Testing Announcement Target Audiences ===")
+        
+        principal_token = self.get_auth_token_for_role("principal")
+        if not principal_token:
+            self.log_result("Announcement Target Audiences", False, "Could not get principal auth token")
+            return False
+        
+        target_audiences = ["all", "students", "teachers", "A5", "A6"]
+        headers = {
+            'Authorization': f'Bearer {principal_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        all_passed = True
+        
+        for audience in target_audiences:
+            try:
+                announcement_data = {
+                    "title": f"Test Announcement for {audience}",
+                    "content": f"This announcement targets {audience}",
+                    "target_audience": audience
+                }
+                
+                response = self.session.post(f"{self.base_url}/announcements", json=announcement_data, headers=headers)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if 'announcement_id' in result:
+                        self.log_result(f"Target Audience '{audience}'", True, 
+                                      f"Successfully created announcement for {audience}")
+                    else:
+                        self.log_result(f"Target Audience '{audience}'", False, 
+                                      "Response missing announcement_id", 
+                                      f"Response: {result}")
+                        all_passed = False
+                else:
+                    self.log_result(f"Target Audience '{audience}'", False, 
+                                  f"Failed to create announcement: {response.status_code}", 
+                                  f"Response: {response.text}")
+                    all_passed = False
+                    
+            except Exception as e:
+                self.log_result(f"Target Audience '{audience}'", False, f"Request failed: {str(e)}")
+                all_passed = False
+        
+        return all_passed
+
+    def test_announcement_update_permissions(self):
+        """Test announcement update permissions (only author or principal)"""
+        print("\n=== Testing Announcement Update Permissions ===")
+        
+        teacher_token = self.get_auth_token_for_role("teacher")
+        principal_token = self.get_auth_token_for_role("principal")
+        
+        if not teacher_token or not principal_token:
+            self.log_result("Announcement Update Permissions", False, "Could not get required auth tokens")
+            return False
+        
+        # First create an announcement as teacher
+        try:
+            announcement_data = {
+                "title": "Original Teacher Announcement",
+                "content": "Original content",
+                "target_audience": "students"
+            }
+            
+            headers = {
+                'Authorization': f'Bearer {teacher_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = self.session.post(f"{self.base_url}/announcements", json=announcement_data, headers=headers)
+            
+            if response.status_code != 200:
+                self.log_result("Announcement Update Permissions", False, "Could not create test announcement")
+                return False
+            
+            announcement_id = response.json()['announcement_id']
+            
+            # Test teacher can update their own announcement
+            update_data = {
+                "title": "Updated Teacher Announcement",
+                "content": "Updated content"
+            }
+            
+            response = self.session.put(f"{self.base_url}/announcements/{announcement_id}", 
+                                      json=update_data, headers=headers)
+            
+            if response.status_code == 200:
+                self.log_result("Teacher Update Own Announcement", True, 
+                              "Teacher can update their own announcement")
+            else:
+                self.log_result("Teacher Update Own Announcement", False, 
+                              f"Teacher cannot update own announcement: {response.status_code}")
+                return False
+            
+            # Test principal can update any announcement
+            principal_headers = {
+                'Authorization': f'Bearer {principal_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            update_data = {
+                "title": "Principal Updated Announcement",
+                "is_active": True
+            }
+            
+            response = self.session.put(f"{self.base_url}/announcements/{announcement_id}", 
+                                      json=update_data, headers=principal_headers)
+            
+            if response.status_code == 200:
+                self.log_result("Principal Update Any Announcement", True, 
+                              "Principal can update any announcement")
+                return True
+            else:
+                self.log_result("Principal Update Any Announcement", False, 
+                              f"Principal cannot update announcement: {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Announcement Update Permissions", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_announcement_delete_permissions(self):
+        """Test announcement delete permissions (only author or principal)"""
+        print("\n=== Testing Announcement Delete Permissions ===")
+        
+        teacher_token = self.get_auth_token_for_role("teacher")
+        principal_token = self.get_auth_token_for_role("principal")
+        
+        if not teacher_token or not principal_token:
+            self.log_result("Announcement Delete Permissions", False, "Could not get required auth tokens")
+            return False
+        
+        # Create test announcements
+        try:
+            # Create announcement as teacher
+            announcement_data = {
+                "title": "Teacher Announcement to Delete",
+                "content": "This will be deleted",
+                "target_audience": "students"
+            }
+            
+            teacher_headers = {
+                'Authorization': f'Bearer {teacher_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = self.session.post(f"{self.base_url}/announcements", json=announcement_data, headers=teacher_headers)
+            
+            if response.status_code != 200:
+                self.log_result("Announcement Delete Permissions", False, "Could not create test announcement")
+                return False
+            
+            teacher_announcement_id = response.json()['announcement_id']
+            
+            # Create announcement as principal
+            principal_headers = {
+                'Authorization': f'Bearer {principal_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = self.session.post(f"{self.base_url}/announcements", json=announcement_data, headers=principal_headers)
+            
+            if response.status_code != 200:
+                self.log_result("Announcement Delete Permissions", False, "Could not create principal test announcement")
+                return False
+            
+            principal_announcement_id = response.json()['announcement_id']
+            
+            # Test teacher can delete their own announcement
+            response = self.session.delete(f"{self.base_url}/announcements/{teacher_announcement_id}", 
+                                         headers=teacher_headers)
+            
+            if response.status_code == 200:
+                self.log_result("Teacher Delete Own Announcement", True, 
+                              "Teacher can delete their own announcement")
+            else:
+                self.log_result("Teacher Delete Own Announcement", False, 
+                              f"Teacher cannot delete own announcement: {response.status_code}")
+                return False
+            
+            # Test principal can delete any announcement
+            response = self.session.delete(f"{self.base_url}/announcements/{principal_announcement_id}", 
+                                         headers=principal_headers)
+            
+            if response.status_code == 200:
+                self.log_result("Principal Delete Any Announcement", True, 
+                              "Principal can delete any announcement")
+                return True
+            else:
+                self.log_result("Principal Delete Any Announcement", False, 
+                              f"Principal cannot delete announcement: {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Announcement Delete Permissions", False, f"Request failed: {str(e)}")
+            return False
+
     def run_all_tests(self):
         """Run all backend tests"""
         print(f"\n{'='*60}")
         print("SMART ATTENDANCE BACKEND API TESTING")
+        print("Focus: Principal Role & Announcements Functionality")
         print(f"{'='*60}")
         print(f"Backend URL: {self.base_url}")
         print(f"Test started at: {datetime.now().isoformat()}")
         
         # Run tests in order
         tests = [
+            # Basic functionality tests
             self.test_cors_preflight,
             self.test_cors_actual_request,
             self.test_student_registration,
             self.test_teacher_registration,
+            self.test_principal_registration,
             self.test_login,
             self.test_protected_route,
-            self.test_protected_route_without_token
+            self.test_protected_route_without_token,
+            
+            # Principal role tests
+            self.test_principal_access_teacher_endpoints,
+            self.test_principal_full_attendance_records,
+            self.test_principal_full_timetable,
+            
+            # Announcements tests
+            self.test_announcement_creation_teacher,
+            self.test_announcement_creation_principal,
+            self.test_student_announcement_creation_forbidden,
+            self.test_announcement_listing_filtering,
+            self.test_announcement_target_audiences,
+            self.test_announcement_update_permissions,
+            self.test_announcement_delete_permissions
         ]
         
         passed = 0
