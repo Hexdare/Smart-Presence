@@ -821,13 +821,15 @@ const GenerateQRCard = ({ onQrGenerated }) => {
 };
 
 const StudentDashboard = ({ user }) => {
-  const [activeTab, setActiveTab] = useState("scan");
+  const [activeTab, setActiveTab] = useState("announcements");
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [timetable, setTimetable] = useState({});
+  const [announcements, setAnnouncements] = useState([]);
 
   useEffect(() => {
     fetchAttendanceRecords();
     fetchTimetable();
+    fetchAnnouncements();
   }, []);
 
   const fetchAttendanceRecords = async () => {
@@ -849,6 +851,17 @@ const StudentDashboard = ({ user }) => {
       setTimetable(response.data);
     } catch (error) {
       console.error("Error fetching timetable:", error);
+    }
+  };
+
+  const fetchAnnouncements = async () => {
+    try {
+      const response = await axios.get(`${API}/announcements`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+      setAnnouncements(response.data);
+    } catch (error) {
+      console.error("Error fetching announcements:", error);
     }
   };
 
