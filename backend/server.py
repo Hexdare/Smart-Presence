@@ -333,11 +333,142 @@ async def login_user(user_credentials: UserLogin):
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     return current_user
 
-# QR Session endpoints
+# Helper function to get current active classes for a teacher
+def get_current_active_classes(teacher_subjects: List[str]):
+    """Get currently active classes based on current time and teacher's subjects"""
+    now = datetime.now(timezone.utc)
+    current_time = now.strftime("%H:%M")
+    current_day = now.strftime("%A")
+    
+    active_classes = []
+    
+    if current_day in TIMETABLE:
+        for section_name, periods in TIMETABLE[current_day].items():
+            for period in periods:
+                # Check if this period matches teacher's subjects
+                subject_match = False
+                for teacher_subject in teacher_subjects:
+                    if (teacher_subject.lower() in period["subject"].lower() or 
+                        period["subject"].lower() in teacher_subject.lower() or
+                        period["class"] == teacher_subject):
+                        subject_match = True
+                        break
+                
+                if subject_match:
+                    # Parse time slot to check if class is currently active
+                    time_parts = period["time"].split('-')
+                    if len(time_parts) == 2:
+                        start_time = time_parts[0].strip()
+                        end_time = time_parts[1].strip()
+                        
+                        # Convert to comparable format (remove colons for simple comparison)
+                        current_minutes = int(current_time.replace(":", ""))
+                        start_minutes = int(start_time.replace(":", ""))
+                        end_minutes = int(end_time.replace(":", ""))
+                        
+                        # Check if current time is within class period
+                        if start_minutes <= current_minutes <= end_minutes:
+                            class_info = period.copy()
+                            class_info["section"] = section_name
+                            class_info["day"] = current_day
+                            active_classes.append(class_info)
+    
+    return active_classes
+
+# New endpoint to get current active classes
+@api_router.get("/qr/active-classes")
+async def get_active_classes(current_user: User = Depends(get_current_user)):
+    if current_user.role != "teacher":
+        raise HTTPException(status_code=403, detail="Only teachers can view active classes")
+    
+    if not current_user.subjects:
+        return {"active_classes": [], "message": "No subjects assigned"}
+    
+    active_classes = get_current_active_classes(current_user.subjects)
+    return {"active_classes": active_classes, "current_time": datetime.now(timezone.utc).isoformat()}
+
+# Enhanced QR generation for active classes
+@api_router.post("/qr/generate-for-active-class")
+async def generate_qr_for_active_class(class_info: dict, current_user: User = Depends(get_current_user)):
+    if current_user.role != "teacher":
+        raise HTTPException(status_code=403, detail="Only teachers can generate QR codes")
+    
+    # Verify this is actually an active class for this teacher
+    active_classes = get_current_active_classes(current_user.subjects or [])
+    
+    # Find matching active class
+    matching_class = None
+    for active_class in active_classes:
+        if (active_class["section"] == class_info.get("section") and 
+            active_class["subject"] == class_info.get("subject") and
+            active_class["time"] == class_info.get("time")):
+            matching_class = active_class
+            break
+    
+    if not matching_class:
+        raise HTTPException(status_code=400, detail="No active class found for the specified parameters")
+    
+    # Generate QR session
+    qr_session_id = str(uuid.uuid4())
+    qr_session_data = {
+        "session_id": qr_session_id,
+        "teacher_id": current_user.id,
+        "class_section": matching_class["section"],
+        "subject": matching_class["subject"],
+        "time_slot": matching_class["time"],
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    qr_data_str = json.dumps(qr_session_data)
+    qr_image = generate_qr_code(qr_data_str)
+    
+    # Calculate exact expiry time based on class end time
+    expires_at = parse_time_slot(matching_class["time"])
+    
+    # Create QR session
+    qr_session = QRSession(
+        id=qr_session_id,
+        teacher_id=current_user.id,
+        teacher_name=current_user.full_name,
+        class_section=matching_class["section"],
+        subject=matching_class["subject"],
+        class_code=matching_class["class"],
+        time_slot=matching_class["time"],
+        qr_data=qr_data_str,
+        qr_image=qr_image,
+        expires_at=expires_at
+    )
+    
+    await db.qr_sessions.insert_one(qr_session.dict())
+    
+    return {
+        "session_id": qr_session_id,
+        "qr_image": qr_image,
+        "qr_data": qr_data_str,
+        "expires_at": expires_at.isoformat(),
+        "class_section": matching_class["section"],
+        "subject": matching_class["subject"],
+        "time_slot": matching_class["time"],
+        "class_code": matching_class["class"]
+    }
+
+# Keep the original QR generation as backup/manual option
 @api_router.post("/qr/generate")
 async def generate_qr_session(qr_data: QRSessionCreate, current_user: User = Depends(get_current_user)):
     if current_user.role != "teacher":
         raise HTTPException(status_code=403, detail="Only teachers can generate QR codes")
+    
+    # Validate that teacher can teach this subject
+    if current_user.subjects:
+        subject_match = False
+        for teacher_subject in current_user.subjects:
+            if (teacher_subject.lower() in qr_data.subject.lower() or 
+                qr_data.subject.lower() in teacher_subject.lower()):
+                subject_match = True
+                break
+        
+        if not subject_match:
+            raise HTTPException(status_code=403, detail="You are not authorized to create QR codes for this subject")
     
     # Validate class section
     if qr_data.class_section not in ["A5", "A6"]:
