@@ -988,6 +988,496 @@ class BackendTester:
             self.log_result("Announcement Delete Permissions", False, f"Request failed: {str(e)}")
             return False
 
+    # Emergency Alert System Tests
+    def test_emergency_alert_creation_student(self):
+        """Test emergency alert creation by student (should work)"""
+        print("\n=== Testing Emergency Alert Creation by Student ===")
+        
+        student_token = self.get_auth_token_for_role("student")
+        if not student_token:
+            self.log_result("Student Emergency Alert Creation", False, "Could not get student auth token")
+            return False
+        
+        headers = {
+            'Authorization': f'Bearer {student_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Test different alert types
+        alert_types = [
+            {"alert_type": "fire", "description": None},
+            {"alert_type": "unauthorized_access", "description": None},
+            {"alert_type": "other", "description": "Suspicious person in building"}
+        ]
+        
+        all_passed = True
+        
+        for alert_data in alert_types:
+            try:
+                response = self.session.post(f"{self.base_url}/emergency-alerts", 
+                                           json=alert_data, headers=headers)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if 'alert_id' in result:
+                        self.log_result(f"Student Alert Creation ({alert_data['alert_type']})", True, 
+                                      f"Student can create {alert_data['alert_type']} alert", 
+                                      f"Alert ID: {result['alert_id']}")
+                    else:
+                        self.log_result(f"Student Alert Creation ({alert_data['alert_type']})", False, 
+                                      "Response missing alert_id", 
+                                      f"Response: {result}")
+                        all_passed = False
+                else:
+                    self.log_result(f"Student Alert Creation ({alert_data['alert_type']})", False, 
+                                  f"Alert creation failed: {response.status_code}", 
+                                  f"Response: {response.text}")
+                    all_passed = False
+                    
+            except Exception as e:
+                self.log_result(f"Student Alert Creation ({alert_data['alert_type']})", False, f"Request failed: {str(e)}")
+                all_passed = False
+        
+        return all_passed
+
+    def test_emergency_alert_creation_teacher_forbidden(self):
+        """Test that teachers cannot create emergency alerts (403 error)"""
+        print("\n=== Testing Emergency Alert Creation by Teacher (Should Fail) ===")
+        
+        teacher_token = self.get_auth_token_for_role("teacher")
+        if not teacher_token:
+            self.log_result("Teacher Emergency Alert Forbidden", False, "Could not get teacher auth token")
+            return False
+        
+        try:
+            alert_data = {
+                "alert_type": "fire",
+                "description": None
+            }
+            
+            headers = {
+                'Authorization': f'Bearer {teacher_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = self.session.post(f"{self.base_url}/emergency-alerts", 
+                                       json=alert_data, headers=headers)
+            
+            if response.status_code == 403:
+                self.log_result("Teacher Emergency Alert Forbidden", True, 
+                              "Teachers correctly forbidden from creating emergency alerts")
+                return True
+            else:
+                self.log_result("Teacher Emergency Alert Forbidden", False, 
+                              f"Expected 403, got {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Teacher Emergency Alert Forbidden", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_emergency_alert_creation_principal_forbidden(self):
+        """Test that principals cannot create emergency alerts (403 error)"""
+        print("\n=== Testing Emergency Alert Creation by Principal (Should Fail) ===")
+        
+        principal_token = self.get_auth_token_for_role("principal")
+        if not principal_token:
+            self.log_result("Principal Emergency Alert Forbidden", False, "Could not get principal auth token")
+            return False
+        
+        try:
+            alert_data = {
+                "alert_type": "fire",
+                "description": None
+            }
+            
+            headers = {
+                'Authorization': f'Bearer {principal_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = self.session.post(f"{self.base_url}/emergency-alerts", 
+                                       json=alert_data, headers=headers)
+            
+            if response.status_code == 403:
+                self.log_result("Principal Emergency Alert Forbidden", True, 
+                              "Principals correctly forbidden from creating emergency alerts")
+                return True
+            else:
+                self.log_result("Principal Emergency Alert Forbidden", False, 
+                              f"Expected 403, got {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Principal Emergency Alert Forbidden", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_emergency_alert_validation(self):
+        """Test emergency alert validation (invalid types, missing description for 'other')"""
+        print("\n=== Testing Emergency Alert Validation ===")
+        
+        student_token = self.get_auth_token_for_role("student")
+        if not student_token:
+            self.log_result("Emergency Alert Validation", False, "Could not get student auth token")
+            return False
+        
+        headers = {
+            'Authorization': f'Bearer {student_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Test invalid alert type
+        try:
+            invalid_alert_data = {
+                "alert_type": "invalid_type",
+                "description": None
+            }
+            
+            response = self.session.post(f"{self.base_url}/emergency-alerts", 
+                                       json=invalid_alert_data, headers=headers)
+            
+            if response.status_code == 400:
+                self.log_result("Invalid Alert Type Validation", True, 
+                              "Invalid alert type correctly rejected")
+            else:
+                self.log_result("Invalid Alert Type Validation", False, 
+                              f"Expected 400, got {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Invalid Alert Type Validation", False, f"Request failed: {str(e)}")
+            return False
+        
+        # Test 'other' type without description
+        try:
+            other_without_desc = {
+                "alert_type": "other",
+                "description": None
+            }
+            
+            response = self.session.post(f"{self.base_url}/emergency-alerts", 
+                                       json=other_without_desc, headers=headers)
+            
+            if response.status_code == 400:
+                self.log_result("Other Type Missing Description", True, 
+                              "'Other' type without description correctly rejected")
+                return True
+            else:
+                self.log_result("Other Type Missing Description", False, 
+                              f"Expected 400, got {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Other Type Missing Description", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_emergency_alert_listing_permissions(self):
+        """Test emergency alert listing with role-based permissions"""
+        print("\n=== Testing Emergency Alert Listing Permissions ===")
+        
+        # Test different roles see appropriate alerts
+        roles_to_test = ["student", "teacher", "principal"]
+        all_passed = True
+        
+        for role in roles_to_test:
+            token = self.get_auth_token_for_role(role)
+            if not token:
+                self.log_result(f"{role.title()} Alert Listing", False, f"Could not get {role} auth token")
+                all_passed = False
+                continue
+            
+            try:
+                headers = {'Authorization': f'Bearer {token}'}
+                response = self.session.get(f"{self.base_url}/emergency-alerts", headers=headers)
+                
+                if response.status_code == 200:
+                    alerts = response.json()
+                    if role == "student":
+                        # Students should see only their own alerts
+                        self.log_result(f"{role.title()} Alert Listing", True, 
+                                      f"Student can view their alerts ({len(alerts)} alerts)")
+                    else:
+                        # Teachers and principals should see all alerts
+                        self.log_result(f"{role.title()} Alert Listing", True, 
+                                      f"{role.title()} can view all alerts ({len(alerts)} alerts)")
+                else:
+                    self.log_result(f"{role.title()} Alert Listing", False, 
+                                  f"Alert listing failed: {response.status_code}", 
+                                  f"Response: {response.text}")
+                    all_passed = False
+                    
+            except Exception as e:
+                self.log_result(f"{role.title()} Alert Listing", False, f"Request failed: {str(e)}")
+                all_passed = False
+        
+        return all_passed
+
+    def test_emergency_alert_status_update_principal(self):
+        """Test emergency alert status update by principal (should work)"""
+        print("\n=== Testing Emergency Alert Status Update by Principal ===")
+        
+        student_token = self.get_auth_token_for_role("student")
+        principal_token = self.get_auth_token_for_role("principal")
+        
+        if not student_token or not principal_token:
+            self.log_result("Principal Alert Status Update", False, "Could not get required auth tokens")
+            return False
+        
+        # First create an alert as student
+        try:
+            alert_data = {
+                "alert_type": "fire",
+                "description": None
+            }
+            
+            student_headers = {
+                'Authorization': f'Bearer {student_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = self.session.post(f"{self.base_url}/emergency-alerts", 
+                                       json=alert_data, headers=student_headers)
+            
+            if response.status_code != 200:
+                self.log_result("Principal Alert Status Update", False, "Could not create test alert")
+                return False
+            
+            alert_id = response.json()['alert_id']
+            
+            # Test principal can update status to acknowledged
+            principal_headers = {
+                'Authorization': f'Bearer {principal_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            status_update = {"status": "acknowledged"}
+            
+            response = self.session.put(f"{self.base_url}/emergency-alerts/{alert_id}/status", 
+                                      json=status_update, headers=principal_headers)
+            
+            if response.status_code == 200:
+                self.log_result("Principal Update to Acknowledged", True, 
+                              "Principal can update alert status to acknowledged")
+            else:
+                self.log_result("Principal Update to Acknowledged", False, 
+                              f"Status update failed: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+            
+            # Test principal can update status to resolved
+            status_update = {"status": "resolved"}
+            
+            response = self.session.put(f"{self.base_url}/emergency-alerts/{alert_id}/status", 
+                                      json=status_update, headers=principal_headers)
+            
+            if response.status_code == 200:
+                self.log_result("Principal Update to Resolved", True, 
+                              "Principal can update alert status to resolved")
+                return True
+            else:
+                self.log_result("Principal Update to Resolved", False, 
+                              f"Status update failed: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Principal Alert Status Update", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_emergency_alert_status_update_teacher_forbidden(self):
+        """Test that teachers cannot update emergency alert status (403 error)"""
+        print("\n=== Testing Emergency Alert Status Update by Teacher (Should Fail) ===")
+        
+        student_token = self.get_auth_token_for_role("student")
+        teacher_token = self.get_auth_token_for_role("teacher")
+        
+        if not student_token or not teacher_token:
+            self.log_result("Teacher Alert Status Update Forbidden", False, "Could not get required auth tokens")
+            return False
+        
+        # First create an alert as student
+        try:
+            alert_data = {
+                "alert_type": "unauthorized_access",
+                "description": None
+            }
+            
+            student_headers = {
+                'Authorization': f'Bearer {student_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = self.session.post(f"{self.base_url}/emergency-alerts", 
+                                       json=alert_data, headers=student_headers)
+            
+            if response.status_code != 200:
+                self.log_result("Teacher Alert Status Update Forbidden", False, "Could not create test alert")
+                return False
+            
+            alert_id = response.json()['alert_id']
+            
+            # Test teacher cannot update status
+            teacher_headers = {
+                'Authorization': f'Bearer {teacher_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            status_update = {"status": "acknowledged"}
+            
+            response = self.session.put(f"{self.base_url}/emergency-alerts/{alert_id}/status", 
+                                      json=status_update, headers=teacher_headers)
+            
+            if response.status_code == 403:
+                self.log_result("Teacher Alert Status Update Forbidden", True, 
+                              "Teachers correctly forbidden from updating alert status")
+                return True
+            else:
+                self.log_result("Teacher Alert Status Update Forbidden", False, 
+                              f"Expected 403, got {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Teacher Alert Status Update Forbidden", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_emergency_alert_status_validation(self):
+        """Test emergency alert status validation (invalid status values)"""
+        print("\n=== Testing Emergency Alert Status Validation ===")
+        
+        student_token = self.get_auth_token_for_role("student")
+        principal_token = self.get_auth_token_for_role("principal")
+        
+        if not student_token or not principal_token:
+            self.log_result("Alert Status Validation", False, "Could not get required auth tokens")
+            return False
+        
+        # First create an alert as student
+        try:
+            alert_data = {
+                "alert_type": "other",
+                "description": "Test alert for status validation"
+            }
+            
+            student_headers = {
+                'Authorization': f'Bearer {student_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = self.session.post(f"{self.base_url}/emergency-alerts", 
+                                       json=alert_data, headers=student_headers)
+            
+            if response.status_code != 200:
+                self.log_result("Alert Status Validation", False, "Could not create test alert")
+                return False
+            
+            alert_id = response.json()['alert_id']
+            
+            # Test invalid status value
+            principal_headers = {
+                'Authorization': f'Bearer {principal_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            invalid_status = {"status": "invalid_status"}
+            
+            response = self.session.put(f"{self.base_url}/emergency-alerts/{alert_id}/status", 
+                                      json=invalid_status, headers=principal_headers)
+            
+            if response.status_code == 400:
+                self.log_result("Alert Status Validation", True, 
+                              "Invalid status value correctly rejected")
+                return True
+            else:
+                self.log_result("Alert Status Validation", False, 
+                              f"Expected 400, got {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Alert Status Validation", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_emergency_alert_individual_access(self):
+        """Test individual emergency alert access permissions"""
+        print("\n=== Testing Individual Emergency Alert Access ===")
+        
+        student_token = self.get_auth_token_for_role("student")
+        teacher_token = self.get_auth_token_for_role("teacher")
+        principal_token = self.get_auth_token_for_role("principal")
+        
+        if not student_token or not teacher_token or not principal_token:
+            self.log_result("Individual Alert Access", False, "Could not get required auth tokens")
+            return False
+        
+        # First create an alert as student
+        try:
+            alert_data = {
+                "alert_type": "fire",
+                "description": None
+            }
+            
+            student_headers = {
+                'Authorization': f'Bearer {student_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = self.session.post(f"{self.base_url}/emergency-alerts", 
+                                       json=alert_data, headers=student_headers)
+            
+            if response.status_code != 200:
+                self.log_result("Individual Alert Access", False, "Could not create test alert")
+                return False
+            
+            alert_id = response.json()['alert_id']
+            
+            # Test student can access their own alert
+            response = self.session.get(f"{self.base_url}/emergency-alerts/{alert_id}", 
+                                      headers=student_headers)
+            
+            if response.status_code == 200:
+                self.log_result("Student Access Own Alert", True, 
+                              "Student can access their own alert")
+            else:
+                self.log_result("Student Access Own Alert", False, 
+                              f"Student cannot access own alert: {response.status_code}")
+                return False
+            
+            # Test teacher can access any alert
+            teacher_headers = {'Authorization': f'Bearer {teacher_token}'}
+            response = self.session.get(f"{self.base_url}/emergency-alerts/{alert_id}", 
+                                      headers=teacher_headers)
+            
+            if response.status_code == 200:
+                self.log_result("Teacher Access Any Alert", True, 
+                              "Teacher can access any alert")
+            else:
+                self.log_result("Teacher Access Any Alert", False, 
+                              f"Teacher cannot access alert: {response.status_code}")
+                return False
+            
+            # Test principal can access any alert
+            principal_headers = {'Authorization': f'Bearer {principal_token}'}
+            response = self.session.get(f"{self.base_url}/emergency-alerts/{alert_id}", 
+                                      headers=principal_headers)
+            
+            if response.status_code == 200:
+                self.log_result("Principal Access Any Alert", True, 
+                              "Principal can access any alert")
+                return True
+            else:
+                self.log_result("Principal Access Any Alert", False, 
+                              f"Principal cannot access alert: {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Individual Alert Access", False, f"Request failed: {str(e)}")
+            return False
+
     def run_all_tests(self):
         """Run all backend tests"""
         print(f"\n{'='*60}")
