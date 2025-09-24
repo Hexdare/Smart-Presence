@@ -343,6 +343,11 @@ async def register_user(user_data: UserCreate):
             if not user_data.subjects or len(user_data.subjects) == 0:
                 raise HTTPException(status_code=400, detail="At least one subject is required for teachers")
         
+        # For principals, validate required fields (principals can teach subjects but it's optional)
+        if user_data.role == "principal":
+            # Principals have all permissions, no specific validation needed
+            pass
+        
         # Create user
         user_dict = user_data.dict()
         user_dict["password_hash"] = get_password_hash(user_data.password)
