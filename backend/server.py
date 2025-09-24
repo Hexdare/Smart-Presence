@@ -163,7 +163,7 @@ class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     username: str
     password_hash: str
-    role: str  # "teacher" or "student"
+    role: str  # "teacher", "student", or "principal"
     student_id: Optional[str] = None
     class_section: Optional[str] = None  # "A5" or "A6" for students
     subjects: Optional[List[str]] = None  # List of subjects for teachers
