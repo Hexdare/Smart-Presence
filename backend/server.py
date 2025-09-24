@@ -882,6 +882,102 @@ async def update_timetable(timetable_data: dict, current_user: User = Depends(ge
     
     return {"message": "Timetable updated successfully"}
 
+# Emergency Alert endpoints
+@api_router.post("/emergency-alerts", response_model=dict)
+async def create_emergency_alert(alert_data: EmergencyAlertCreate, current_user: User = Depends(get_current_user)):
+    if current_user.role != "student":
+        raise HTTPException(status_code=403, detail="Only students can create emergency alerts")
+    
+    # Validate alert type
+    valid_alert_types = ["fire", "unauthorized_access", "other"]
+    if alert_data.alert_type not in valid_alert_types:
+        raise HTTPException(status_code=400, detail=f"Alert type must be one of: {', '.join(valid_alert_types)}")
+    
+    # For "other" type, description is required
+    if alert_data.alert_type == "other" and not alert_data.description:
+        raise HTTPException(status_code=400, detail="Description is required for 'other' type alerts")
+    
+    # Create emergency alert
+    emergency_alert = EmergencyAlert(
+        student_id=current_user.student_id,
+        student_name=current_user.full_name,
+        class_section=current_user.class_section,
+        alert_type=alert_data.alert_type,
+        description=alert_data.description
+    )
+    
+    await db.emergency_alerts.insert_one(emergency_alert.dict())
+    
+    return {"message": "Emergency alert created successfully", "alert_id": emergency_alert.id}
+
+@api_router.get("/emergency-alerts")
+async def get_emergency_alerts(current_user: User = Depends(get_current_user)):
+    try:
+        # All roles can view emergency alerts, but with different scopes
+        if current_user.role == "student":
+            # Students see their own alerts
+            alerts = await db.emergency_alerts.find({"student_id": current_user.student_id}).sort("created_at", -1).to_list(1000)
+        elif current_user.role in ["teacher", "principal"]:
+            # Teachers and principals see all alerts
+            alerts = await db.emergency_alerts.find({}).sort("created_at", -1).to_list(1000)
+        else:
+            alerts = []
+        
+        return [EmergencyAlert(**alert) for alert in alerts]
+    except Exception as e:
+        logger.error(f"Error fetching emergency alerts: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch emergency alerts")
+
+@api_router.put("/emergency-alerts/{alert_id}/status")
+async def update_emergency_alert_status(
+    alert_id: str, 
+    status_update: EmergencyAlertStatusUpdate, 
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "principal":
+        raise HTTPException(status_code=403, detail="Only principals can update emergency alert status")
+    
+    # Find the alert
+    alert = await db.emergency_alerts.find_one({"id": alert_id})
+    if not alert:
+        raise HTTPException(status_code=404, detail="Emergency alert not found")
+    
+    # Validate status
+    valid_statuses = ["acknowledged", "resolved"]
+    if status_update.status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Status must be one of: {', '.join(valid_statuses)}")
+    
+    # Prepare update data
+    update_fields = {
+        "status": status_update.status
+    }
+    
+    current_time = datetime.now(timezone.utc)
+    if status_update.status == "acknowledged":
+        update_fields["acknowledged_at"] = current_time
+    elif status_update.status == "resolved":
+        update_fields["resolved_at"] = current_time
+        update_fields["resolved_by"] = current_user.id
+        update_fields["resolver_name"] = current_user.full_name
+    
+    await db.emergency_alerts.update_one({"id": alert_id}, {"$set": update_fields})
+    
+    return {"message": f"Emergency alert status updated to {status_update.status}"}
+
+@api_router.get("/emergency-alerts/{alert_id}")
+async def get_emergency_alert(alert_id: str, current_user: User = Depends(get_current_user)):
+    alert = await db.emergency_alerts.find_one({"id": alert_id})
+    if not alert:
+        raise HTTPException(status_code=404, detail="Emergency alert not found")
+    
+    # Check permissions
+    if current_user.role == "student" and alert["student_id"] != current_user.student_id:
+        raise HTTPException(status_code=403, detail="You can only view your own alerts")
+    elif current_user.role not in ["teacher", "principal", "student"]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    
+    return EmergencyAlert(**alert)
+
 # Add CORS middleware BEFORE including router
 cors_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
 # Handle wildcard patterns for Vercel deployment
