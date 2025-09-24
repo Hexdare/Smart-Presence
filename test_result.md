@@ -174,8 +174,8 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Fix CORS configuration"
-    - "Review API URL construction"
+    - "Principal role implementation"
+    - "Announcements API implementation"
   stuck_tasks:
     - task: "Fix Vercel deployment routing configuration"
       implemented: true
