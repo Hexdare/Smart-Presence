@@ -166,6 +166,7 @@ const Register = ({ setError, error }) => {
     role: "",
     student_id: "",
     class_section: "",
+    subjects: [],
     full_name: ""
   });
   const [loading, setLoading] = useState(false);
