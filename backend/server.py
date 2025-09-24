@@ -221,6 +221,33 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
+class Announcement(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str
+    content: str
+    author_id: str
+    author_name: str
+    author_role: str  # "teacher", "principal"
+    target_audience: str  # "all", "teachers", "students", "A5", "A6"
+    image_url: Optional[str] = None
+    image_data: Optional[str] = None  # base64 encoded image
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    is_active: bool = True
+
+class AnnouncementCreate(BaseModel):
+    title: str
+    content: str
+    target_audience: str = "all"
+    image_data: Optional[str] = None  # base64 encoded image
+
+class AnnouncementUpdate(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+    target_audience: Optional[str] = None
+    image_data: Optional[str] = None
+    is_active: Optional[bool] = None
+
 # Utility functions
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
