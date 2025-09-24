@@ -825,6 +825,8 @@ const StudentDashboard = ({ user }) => {
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [timetable, setTimetable] = useState({});
   const [announcements, setAnnouncements] = useState([]);
+  const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+  const [showAlertsHistory, setShowAlertsHistory] = useState(false);
 
   useEffect(() => {
     fetchAttendanceRecords();
@@ -866,7 +868,30 @@ const StudentDashboard = ({ user }) => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Hamburger Menu - Floating Button */}
+      <div className="fixed top-20 left-4 z-50">
+        <Button
+          onClick={() => setShowAlertsHistory(true)}
+          className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-sm hover:bg-white/95 shadow-lg border border-gray-200"
+          variant="outline"
+          data-testid="hamburger-menu-button"
+        >
+          <Menu className="w-6 h-6 text-gray-700" />
+        </Button>
+      </div>
+
+      {/* Emergency Alert Button - Translucent Red Squircle */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <Button
+          onClick={() => setShowEmergencyModal(true)}
+          className="w-16 h-16 rounded-3xl bg-red-500/60 backdrop-blur-sm hover:bg-red-600/70 shadow-2xl border border-red-400/30 transition-all duration-300 animate-pulse"
+          data-testid="emergency-alert-button"
+        >
+          <AlertTriangle className="w-8 h-8 text-white" />
+        </Button>
+      </div>
+
       <div className="text-center">
         <h2 className="text-3xl font-bold text-gray-900">Student Dashboard</h2>
         <p className="mt-2 text-gray-600">Scan QR codes to mark your attendance</p>
@@ -913,6 +938,22 @@ const StudentDashboard = ({ user }) => {
           <TimetableView timetable={timetable} />
         </TabsContent>
       </Tabs>
+
+      {/* Emergency Alert Modal */}
+      {showEmergencyModal && (
+        <EmergencyAlertModal 
+          onClose={() => setShowEmergencyModal(false)} 
+          user={user}
+        />
+      )}
+
+      {/* Emergency Alerts History Modal */}
+      {showAlertsHistory && (
+        <EmergencyAlertsHistory 
+          onClose={() => setShowAlertsHistory(false)}
+          user={user}
+        />
+      )}
     </div>
   );
 };
