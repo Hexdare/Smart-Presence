@@ -427,8 +427,8 @@ def get_current_active_classes(teacher_subjects: List[str]):
 # New endpoint to get current active classes
 @api_router.get("/qr/active-classes")
 async def get_active_classes(current_user: User = Depends(get_current_user)):
-    if current_user.role != "teacher":
-        raise HTTPException(status_code=403, detail="Only teachers can view active classes")
+    if current_user.role not in ["teacher", "principal"]:
+        raise HTTPException(status_code=403, detail="Only teachers and principals can view active classes")
     
     if not current_user.subjects:
         return {"active_classes": [], "message": "No subjects assigned"}
