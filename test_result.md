@@ -101,3 +101,49 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "User is experiencing CORS errors when deploying on Vercel. Register new user function fails with CORS policy blocking XMLHttpRequest and preflight request redirect issues."
+
+backend:
+  - task: "Fix CORS configuration"
+    implemented: false
+    working: false
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "main"
+        comment: "CORS middleware is incorrectly positioned after router inclusion, causing CORS headers to not be applied to API routes. Also CORS origins configuration needs verification."
+
+frontend:
+  - task: "Review API URL construction"
+    implemented: true
+    working: false
+    file: "frontend/src/App.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "main"
+        comment: "Frontend is correctly using REACT_APP_BACKEND_URL but CORS issues prevent successful API calls"
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 0
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Fix CORS configuration"
+    - "Review API URL construction"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: "Identified CORS configuration issues: 1) CORS middleware added after router inclusion, 2) Potential URL construction problems with double slashes, 3) Need to verify CORS origins configuration. Ready to implement fixes."
