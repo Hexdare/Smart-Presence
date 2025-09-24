@@ -821,7 +821,9 @@ const AttendanceList = ({ records }) => {
 };
 
 const TimetableView = ({ timetable }) => {
-  const days = Object.keys(timetable);
+  // Ensure timetable is an object and not null/undefined
+  const safeTimatable = timetable || {};
+  const days = Object.keys(safeTimatable);
 
   return (
     <Card className="bg-white/80 backdrop-blur-sm shadow-lg">
@@ -833,24 +835,33 @@ const TimetableView = ({ timetable }) => {
           <p className="text-gray-500 text-center py-8">No timetable data available.</p>
         ) : (
           <div className="space-y-6">
-            {days.map((day) => (
-              <div key={day} className="border rounded-lg p-4 bg-white/50">
-                <h3 className="font-bold text-lg mb-3 text-indigo-700">{day}</h3>
-                <div className="grid gap-2">
-                  {timetable[day].map((period, index) => (
-                    <div key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                      <span className="font-medium text-sm">{period.time}</span>
-                      <span className="text-sm text-gray-600">{period.subject}</span>
-                      {period.class && (
-                        <Badge variant="outline" className="text-xs">
-                          {period.class}
-                        </Badge>
-                      )}
-                    </div>
-                  ))}
+            {days.map((day) => {
+              // Ensure timetable[day] is an array before mapping
+              const daySchedule = Array.isArray(safeTimatable[day]) ? safeTimatable[day] : [];
+              
+              return (
+                <div key={day} className="border rounded-lg p-4 bg-white/50">
+                  <h3 className="font-bold text-lg mb-3 text-indigo-700">{day}</h3>
+                  <div className="grid gap-2">
+                    {daySchedule.length === 0 ? (
+                      <p className="text-gray-400 text-sm">No classes scheduled</p>
+                    ) : (
+                      daySchedule.map((period, index) => (
+                        <div key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                          <span className="font-medium text-sm">{period.time || 'N/A'}</span>
+                          <span className="text-sm text-gray-600">{period.subject || 'N/A'}</span>
+                          {period.class && (
+                            <Badge variant="outline" className="text-xs">
+                              {period.class}
+                            </Badge>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </CardContent>
