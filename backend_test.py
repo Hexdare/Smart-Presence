@@ -1482,7 +1482,7 @@ class BackendTester:
         """Run all backend tests"""
         print(f"\n{'='*60}")
         print("SMART ATTENDANCE BACKEND API TESTING")
-        print("Focus: Principal Role & Announcements Functionality")
+        print("Focus: Emergency Alert System & Complete Backend Functionality")
         print(f"{'='*60}")
         print(f"Backend URL: {self.base_url}")
         print(f"Test started at: {datetime.now().isoformat()}")
@@ -1511,7 +1511,18 @@ class BackendTester:
             self.test_announcement_listing_filtering,
             self.test_announcement_target_audiences,
             self.test_announcement_update_permissions,
-            self.test_announcement_delete_permissions
+            self.test_announcement_delete_permissions,
+            
+            # Emergency Alert System tests
+            self.test_emergency_alert_creation_student,
+            self.test_emergency_alert_creation_teacher_forbidden,
+            self.test_emergency_alert_creation_principal_forbidden,
+            self.test_emergency_alert_validation,
+            self.test_emergency_alert_listing_permissions,
+            self.test_emergency_alert_status_update_principal,
+            self.test_emergency_alert_status_update_teacher_forbidden,
+            self.test_emergency_alert_status_validation,
+            self.test_emergency_alert_individual_access
         ]
         
         passed = 0
