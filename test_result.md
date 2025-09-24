@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "User is experiencing CORS errors when deploying on Vercel. Register new user function fails with CORS policy blocking XMLHttpRequest and preflight request redirect issues."
+user_problem_statement: "User is experiencing CORS errors when deploying on Vercel. Register new user function fails with CORS policy blocking XMLHttpRequest and preflight request redirect issues. User also requested to add emergency alert feature for students with Fire/Unauthorized Access/Other options that notifies teachers and principal, with alert history accessible via hamburger menu."
 
 backend:
   - task: "Fix CORS configuration"
