@@ -874,7 +874,11 @@ const StudentDashboard = ({ user }) => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 bg-white/60 backdrop-blur-sm">
+        <TabsList className="grid w-full grid-cols-4 bg-white/60 backdrop-blur-sm">
+          <TabsTrigger value="announcements" data-testid="student-announcements-tab">
+            <Megaphone className="w-4 h-4 mr-2" />
+            Announcements
+          </TabsTrigger>
           <TabsTrigger value="scan" data-testid="scan-tab">
             <Camera className="w-4 h-4 mr-2" />
             Scan QR
@@ -888,6 +892,14 @@ const StudentDashboard = ({ user }) => {
             Timetable
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="announcements">
+          <AnnouncementSection 
+            announcements={announcements} 
+            onAnnouncementCreated={fetchAnnouncements}
+            userRole={user.role}
+          />
+        </TabsContent>
 
         <TabsContent value="scan">
           <QRScannerCard onAttendanceMarked={fetchAttendanceRecords} />
