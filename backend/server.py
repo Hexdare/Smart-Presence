@@ -285,36 +285,46 @@ def parse_time_slot(time_slot: str):
 # Authentication endpoints
 @api_router.post("/auth/register", response_model=dict)
 async def register_user(user_data: UserCreate):
-    # Check if user exists
-    existing_user = await db.users.find_one({"username": user_data.username})
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Username already registered")
-    
-    # Validate role
-    if user_data.role not in ["teacher", "student"]:
-        raise HTTPException(status_code=400, detail="Role must be 'teacher' or 'student'")
-    
-    # For students, validate required fields
-    if user_data.role == "student":
-        if not user_data.student_id or not user_data.class_section:
-            raise HTTPException(status_code=400, detail="Student ID and class section are required for students")
-        if user_data.class_section not in ["A5", "A6"]:
-            raise HTTPException(status_code=400, detail="Class section must be 'A5' or 'A6'")
-    
-    # For teachers, validate required fields
-    if user_data.role == "teacher":
-        if not user_data.subjects or len(user_data.subjects) == 0:
-            raise HTTPException(status_code=400, detail="At least one subject is required for teachers")
-    
-    # Create user
-    user_dict = user_data.dict()
-    user_dict["password_hash"] = get_password_hash(user_data.password)
-    del user_dict["password"]
-    
-    user = User(**user_dict)
-    await db.users.insert_one(user.dict())
-    
-    return {"message": "User registered successfully", "user_id": user.id}
+    logger.info(f"Attempting to register user: {user_data.username}")
+    try:
+        # Check if user exists
+        existing_user = await db.users.find_one({"username": user_data.username})
+        if existing_user:
+            logger.warning(f"Username {user_data.username} already registered")
+            raise HTTPException(status_code=400, detail="Username already registered")
+        
+        # Validate role
+        if user_data.role not in ["teacher", "student"]:
+            raise HTTPException(status_code=400, detail="Role must be 'teacher' or 'student'")
+        
+        # For students, validate required fields
+        if user_data.role == "student":
+            if not user_data.student_id or not user_data.class_section:
+                raise HTTPException(status_code=400, detail="Student ID and class section are required for students")
+            if user_data.class_section not in ["A5", "A6"]:
+                raise HTTPException(status_code=400, detail="Class section must be 'A5' or 'A6'")
+        
+        # For teachers, validate required fields
+        if user_data.role == "teacher":
+            if not user_data.subjects or len(user_data.subjects) == 0:
+                raise HTTPException(status_code=400, detail="At least one subject is required for teachers")
+        
+        # Create user
+        user_dict = user_data.dict()
+        user_dict["password_hash"] = get_password_hash(user_data.password)
+        del user_dict["password"]
+        
+        user = User(**user_dict)
+        await db.users.insert_one(user.dict())
+        
+        logger.info(f"User {user.username} registered successfully.")
+        return {"message": "User registered successfully", "user_id": user.id}
+    except HTTPException as e:
+        # Re-raise HTTPExceptions to let FastAPI handle them
+        raise e
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during registration: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An internal server error occurred.")
 
 @api_router.post("/auth/login", response_model=Token)
 async def login_user(user_credentials: UserLogin):
