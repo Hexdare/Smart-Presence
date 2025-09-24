@@ -123,7 +123,7 @@ backend:
 frontend:
   - task: "Review API URL construction"
     implemented: true
-    working: false
+    working: "unknown"
     file: "frontend/src/App.js"
     stuck_count: 0
     priority: "medium"
@@ -132,6 +132,9 @@ frontend:
       - working: false
         agent: "main"
         comment: "Frontend is correctly using REACT_APP_BACKEND_URL but CORS issues prevent successful API calls"
+      - working: "unknown"
+        agent: "main"
+        comment: "Fixed URL construction to prevent double slashes by removing trailing slash from REACT_APP_BACKEND_URL before concatenation"
 
 metadata:
   created_by: "main_agent"
