@@ -430,7 +430,13 @@ const Dashboard = ({ user, logout }) => {
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {user.role === "teacher" ? <TeacherDashboard user={user} /> : <StudentDashboard user={user} />}
+        {user.role === "teacher" ? (
+          <TeacherDashboard user={user} />
+        ) : user.role === "principal" ? (
+          <PrincipalDashboard user={user} />
+        ) : (
+          <StudentDashboard user={user} />
+        )}
       </main>
     </div>
   );
