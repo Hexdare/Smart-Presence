@@ -439,8 +439,8 @@ async def get_active_classes(current_user: User = Depends(get_current_user)):
 # Enhanced QR generation for active classes
 @api_router.post("/qr/generate-for-active-class")
 async def generate_qr_for_active_class(class_info: dict, current_user: User = Depends(get_current_user)):
-    if current_user.role != "teacher":
-        raise HTTPException(status_code=403, detail="Only teachers can generate QR codes")
+    if current_user.role not in ["teacher", "principal"]:
+        raise HTTPException(status_code=403, detail="Only teachers and principals can generate QR codes")
     
     # Verify this is actually an active class for this teacher
     active_classes = get_current_active_classes(current_user.subjects or [])
@@ -504,8 +504,8 @@ async def generate_qr_for_active_class(class_info: dict, current_user: User = De
 # Keep the original QR generation as backup/manual option
 @api_router.post("/qr/generate")
 async def generate_qr_session(qr_data: QRSessionCreate, current_user: User = Depends(get_current_user)):
-    if current_user.role != "teacher":
-        raise HTTPException(status_code=403, detail="Only teachers can generate QR codes")
+    if current_user.role not in ["teacher", "principal"]:
+        raise HTTPException(status_code=403, detail="Only teachers and principals can generate QR codes")
     
     # Validate that teacher can teach this subject
     if current_user.subjects:
