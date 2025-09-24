@@ -126,6 +126,30 @@ backend:
         agent: "testing"
         comment: "CONFIRMED: Local backend CORS is working perfectly. Tested all endpoints with 100% success rate. The 405 error is occurring because production URL is serving static files from Vercel CDN instead of routing to backend API server. This is a deployment configuration issue, not a backend code problem."
 
+  - task: "Principal role implementation"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Principal role fully functional: 1) Registration works correctly, 2) Can access all teacher endpoints (QR generation, sessions), 3) Gets full attendance records (not limited to own sessions), 4) Can view complete timetable with all sections. All role-based access controls working properly."
+
+  - task: "Announcements API implementation"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Announcements API fully functional: 1) Teachers and principals can create announcements, 2) Students correctly forbidden (403 error), 3) All target audiences work ('all', 'students', 'teachers', 'A5', 'A6'), 4) Proper filtering based on user role, 5) Update/delete permissions work (author or principal only), 6) Image data support working. All CRUD operations and role-based permissions verified."
+
 frontend:
   - task: "Review API URL construction"
     implemented: true
