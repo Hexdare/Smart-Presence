@@ -164,6 +164,9 @@ test_plan:
         - working: "unknown"
           agent: "main"
           comment: "Fixed Vercel configuration: 1) Created proper entry point /api/index.py for Vercel serverless functions, 2) Updated vercel.json to use correct routing structure, 3) Copied requirements.txt to root level, 4) Fixed Python path imports for Vercel environment"
+        - working: "unknown"
+          agent: "troubleshoot"
+          comment: "Root cause identified: Vercel requires FastAPI app to be directly accessible at module level in serverless function entry point. Fixed by creating clean import wrapper in /api/index.py that properly exports the app instance with fallback error handling."
   test_all: false
   test_priority: "high_first"
 
