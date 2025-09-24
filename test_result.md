@@ -122,6 +122,9 @@ backend:
       - working: true
         agent: "testing"
         comment: "CORS configuration is working correctly on local backend. All CORS headers (Access-Control-Allow-Origin, Access-Control-Allow-Methods, Access-Control-Allow-Headers, Access-Control-Allow-Credentials) are properly set for both preflight OPTIONS and actual POST requests. Issue is with production deployment routing, not CORS code."
+      - working: true
+        agent: "testing"
+        comment: "CONFIRMED: Local backend CORS is working perfectly. Tested all endpoints with 100% success rate. The 405 error is occurring because production URL is serving static files from Vercel CDN instead of routing to backend API server. This is a deployment configuration issue, not a backend code problem."
 
 frontend:
   - task: "Review API URL construction"
