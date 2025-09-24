@@ -247,6 +247,27 @@ class AnnouncementUpdate(BaseModel):
     image_data: Optional[str] = None
     is_active: Optional[bool] = None
 
+class EmergencyAlert(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    student_id: str
+    student_name: str
+    class_section: str
+    alert_type: str  # "fire", "unauthorized_access", "other"
+    description: Optional[str] = None  # For "other" type alerts
+    status: str = "pending"  # "pending", "acknowledged", "resolved"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    acknowledged_at: Optional[datetime] = None
+    resolved_at: Optional[datetime] = None
+    resolved_by: Optional[str] = None  # Principal user ID who resolved it
+    resolver_name: Optional[str] = None  # Principal name who resolved it
+
+class EmergencyAlertCreate(BaseModel):
+    alert_type: str
+    description: Optional[str] = None
+
+class EmergencyAlertStatusUpdate(BaseModel):
+    status: str  # "acknowledged", "resolved"
+
 # Utility functions
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
