@@ -699,6 +699,139 @@ async def get_timetable(current_user: User = Depends(get_current_user)):
         # Return full timetable as fallback
         return TIMETABLE
 
+# Helper function to filter announcements based on user role and target audience
+def filter_announcements_for_user(announcements, user_role, class_section=None):
+    """Filter announcements based on target audience and user permissions"""
+    filtered = []
+    for announcement in announcements:
+        target = announcement["target_audience"]
+        if (target == "all" or 
+            target == user_role or 
+            (target == "students" and user_role == "student") or
+            (target == "teachers" and user_role in ["teacher", "principal"]) or
+            (target == class_section and class_section)):
+            filtered.append(announcement)
+    return filtered
+
+# Announcements endpoints
+@api_router.post("/announcements", response_model=dict)
+async def create_announcement(announcement_data: AnnouncementCreate, current_user: User = Depends(get_current_user)):
+    if current_user.role not in ["teacher", "principal"]:
+        raise HTTPException(status_code=403, detail="Only teachers and principals can create announcements")
+    
+    # Validate target_audience
+    valid_audiences = ["all", "students", "teachers", "A5", "A6"]
+    if announcement_data.target_audience not in valid_audiences:
+        raise HTTPException(status_code=400, detail=f"Target audience must be one of: {', '.join(valid_audiences)}")
+    
+    # Create announcement
+    announcement = Announcement(
+        title=announcement_data.title,
+        content=announcement_data.content,
+        author_id=current_user.id,
+        author_name=current_user.full_name,
+        author_role=current_user.role,
+        target_audience=announcement_data.target_audience,
+        image_data=announcement_data.image_data
+    )
+    
+    await db.announcements.insert_one(announcement.dict())
+    
+    return {"message": "Announcement created successfully", "announcement_id": announcement.id}
+
+@api_router.get("/announcements")
+async def get_announcements(current_user: User = Depends(get_current_user)):
+    try:
+        # Get all active announcements
+        announcements = await db.announcements.find({"is_active": True}).sort("created_at", -1).to_list(1000)
+        
+        # Filter based on user role and permissions
+        filtered_announcements = filter_announcements_for_user(
+            announcements, 
+            current_user.role, 
+            current_user.class_section
+        )
+        
+        return [Announcement(**announcement) for announcement in filtered_announcements]
+    except Exception as e:
+        logger.error(f"Error fetching announcements: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch announcements")
+
+@api_router.get("/announcements/{announcement_id}")
+async def get_announcement(announcement_id: str, current_user: User = Depends(get_current_user)):
+    announcement = await db.announcements.find_one({"id": announcement_id, "is_active": True})
+    if not announcement:
+        raise HTTPException(status_code=404, detail="Announcement not found")
+    
+    # Check if user can view this announcement
+    filtered = filter_announcements_for_user([announcement], current_user.role, current_user.class_section)
+    if not filtered:
+        raise HTTPException(status_code=403, detail="You don't have permission to view this announcement")
+    
+    return Announcement(**announcement)
+
+@api_router.put("/announcements/{announcement_id}")
+async def update_announcement(
+    announcement_id: str, 
+    update_data: AnnouncementUpdate, 
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role not in ["teacher", "principal"]:
+        raise HTTPException(status_code=403, detail="Only teachers and principals can update announcements")
+    
+    # Find the announcement
+    announcement = await db.announcements.find_one({"id": announcement_id})
+    if not announcement:
+        raise HTTPException(status_code=404, detail="Announcement not found")
+    
+    # Check if user is the author or a principal
+    if announcement["author_id"] != current_user.id and current_user.role != "principal":
+        raise HTTPException(status_code=403, detail="You can only update your own announcements")
+    
+    # Prepare update data
+    update_fields = {}
+    if update_data.title is not None:
+        update_fields["title"] = update_data.title
+    if update_data.content is not None:
+        update_fields["content"] = update_data.content
+    if update_data.target_audience is not None:
+        valid_audiences = ["all", "students", "teachers", "A5", "A6"]
+        if update_data.target_audience not in valid_audiences:
+            raise HTTPException(status_code=400, detail=f"Target audience must be one of: {', '.join(valid_audiences)}")
+        update_fields["target_audience"] = update_data.target_audience
+    if update_data.image_data is not None:
+        update_fields["image_data"] = update_data.image_data
+    if update_data.is_active is not None:
+        update_fields["is_active"] = update_data.is_active
+    
+    if update_fields:
+        update_fields["updated_at"] = datetime.now(timezone.utc)
+        await db.announcements.update_one({"id": announcement_id}, {"$set": update_fields})
+    
+    return {"message": "Announcement updated successfully"}
+
+@api_router.delete("/announcements/{announcement_id}")
+async def delete_announcement(announcement_id: str, current_user: User = Depends(get_current_user)):
+    if current_user.role not in ["teacher", "principal"]:
+        raise HTTPException(status_code=403, detail="Only teachers and principals can delete announcements")
+    
+    # Find the announcement
+    announcement = await db.announcements.find_one({"id": announcement_id})
+    if not announcement:
+        raise HTTPException(status_code=404, detail="Announcement not found")
+    
+    # Check if user is the author or a principal
+    if announcement["author_id"] != current_user.id and current_user.role != "principal":
+        raise HTTPException(status_code=403, detail="You can only delete your own announcements")
+    
+    # Soft delete by setting is_active to False
+    await db.announcements.update_one(
+        {"id": announcement_id}, 
+        {"$set": {"is_active": False, "updated_at": datetime.now(timezone.utc)}}
+    )
+    
+    return {"message": "Announcement deleted successfully"}
+
 # Add CORS middleware BEFORE including router
 cors_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
 # Handle wildcard patterns for Vercel deployment
