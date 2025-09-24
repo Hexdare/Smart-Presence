@@ -832,6 +832,36 @@ async def delete_announcement(announcement_id: str, current_user: User = Depends
     
     return {"message": "Announcement deleted successfully"}
 
+# Timetable management for principals
+@api_router.put("/timetable")
+async def update_timetable(timetable_data: dict, current_user: User = Depends(get_current_user)):
+    if current_user.role != "principal":
+        raise HTTPException(status_code=403, detail="Only principals can update the timetable")
+    
+    # Validate timetable structure (basic validation)
+    valid_days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+    valid_sections = ["A5", "A6"]
+    
+    for day, sections in timetable_data.items():
+        if day not in valid_days:
+            raise HTTPException(status_code=400, detail=f"Invalid day: {day}")
+        
+        if not isinstance(sections, dict):
+            raise HTTPException(status_code=400, detail=f"Sections for {day} must be an object")
+        
+        for section, periods in sections.items():
+            if section not in valid_sections:
+                raise HTTPException(status_code=400, detail=f"Invalid section: {section}")
+            
+            if not isinstance(periods, list):
+                raise HTTPException(status_code=400, detail=f"Periods for {day}-{section} must be an array")
+    
+    # Update the global timetable (in a real app, this would be stored in database)
+    global TIMETABLE
+    TIMETABLE.update(timetable_data)
+    
+    return {"message": "Timetable updated successfully"}
+
 # Add CORS middleware BEFORE including router
 cors_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
 # Handle wildcard patterns for Vercel deployment
