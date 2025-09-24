@@ -2,25 +2,14 @@
   "version": 2,
   "builds": [
     {
-      "src": "code/frontend/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "workPath": "code/frontend"
-      }
-    },
-    {
       "src": "code/backend/server.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "code/backend/server.py"
-    },
-    {
       "src": "/(.*)",
-      "dest": "code/frontend/build/index.html"
+      "dest": "code/backend/server.py"
     }
   ]
 }
