@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { QrCode, Users, Calendar, LogOut, Camera, CheckCircle, Clock, User } from "lucide-react";
 import "./App.css";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL?.replace(/\/$/, '') || "";
 const API = `${BACKEND_URL}/api`;
 
 const App = () => {
