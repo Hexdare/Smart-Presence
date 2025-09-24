@@ -404,7 +404,13 @@ async def mark_attendance(attendance_data: AttendanceCreate, current_user: User 
             raise HTTPException(status_code=404, detail="Invalid QR code")
         
         # Check if session is still active and not expired
-        if not qr_session["is_active"] or datetime.now(timezone.utc) > qr_session["expires_at"]:
+        expires_at = qr_session["expires_at"]
+        if isinstance(expires_at, str):
+            expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+        elif expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        
+        if not qr_session["is_active"] or datetime.now(timezone.utc) > expires_at:
             raise HTTPException(status_code=400, detail="QR code has expired")
         
         # Check if student belongs to the correct class section
