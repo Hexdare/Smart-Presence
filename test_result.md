@@ -188,6 +188,7 @@ test_plan:
   current_focus:
     - "Principal role implementation"
     - "Announcements API implementation"
+    - "Emergency Alert System Implementation"
   stuck_tasks:
     - task: "Fix Vercel deployment routing configuration"
       implemented: true
