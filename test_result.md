@@ -156,3 +156,5 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: "Identified CORS configuration issues: 1) CORS middleware added after router inclusion, 2) Potential URL construction problems with double slashes, 3) Need to verify CORS origins configuration. Ready to implement fixes."
+  - agent: "testing"
+    message: "CRITICAL FINDING: 405 Method Not Allowed error is NOT a backend code issue. Local FastAPI backend is working perfectly (100% test pass rate). The production URL https://code-pi-rust.vercel.app is serving static files via Vercel's CDN, not routing API requests to the backend server. This is a deployment/routing configuration issue, not a CORS or backend code problem. All API endpoints work correctly when tested locally."
