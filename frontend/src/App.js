@@ -1132,4 +1132,319 @@ const TimetableView = ({ timetable }) => {
   );
 };
 
+// Role Tag Component
+const RoleTag = ({ role }) => {
+  const tagStyles = {
+    teacher: "bg-blue-500/20 text-blue-800 border-blue-300",
+    principal: "bg-green-500/20 text-green-800 border-green-300",
+  };
+
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${tagStyles[role] || 'bg-gray-500/20 text-gray-800 border-gray-300'}`}>
+      {role}
+    </span>
+  );
+};
+
+// Announcement Section Component
+const AnnouncementSection = ({ announcements, onAnnouncementCreated, userRole }) => {
+  const [showCreateForm, setShowCreateForm] = useState(false);
+
+  return (
+    <div className="space-y-6">
+      {(userRole === "teacher" || userRole === "principal") && (
+        <Card className="bg-white/80 backdrop-blur-sm shadow-lg">
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <CardTitle>Manage Announcements</CardTitle>
+              <Button 
+                onClick={() => setShowCreateForm(!showCreateForm)}
+                className="bg-indigo-600 hover:bg-indigo-700"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                New Announcement
+              </Button>
+            </div>
+          </CardHeader>
+          {showCreateForm && (
+            <CardContent>
+              <CreateAnnouncementForm 
+                onAnnouncementCreated={() => {
+                  onAnnouncementCreated();
+                  setShowCreateForm(false);
+                }}
+                onCancel={() => setShowCreateForm(false)}
+              />
+            </CardContent>
+          )}
+        </Card>
+      )}
+
+      <Card className="bg-white/80 backdrop-blur-sm shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Megaphone className="w-5 h-5 mr-2" />
+            Announcements
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {announcements.length === 0 ? (
+            <div className="text-center py-8">
+              <Megaphone className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500">No announcements yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {announcements.map((announcement) => (
+                <AnnouncementCard key={announcement.id} announcement={announcement} />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+// Create Announcement Form Component
+const CreateAnnouncementForm = ({ onAnnouncementCreated, onCancel }) => {
+  const [formData, setFormData] = useState({
+    title: "",
+    content: "",
+    target_audience: "all",
+    image_data: ""
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        // Convert to base64 (remove data:image/...;base64, prefix)
+        const base64String = reader.result.split(',')[1];
+        setFormData({ ...formData, image_data: base64String });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      await axios.post(`${API}/announcements`, formData, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+      onAnnouncementCreated();
+    } catch (error) {
+      setError(error.response?.data?.detail || "Failed to create announcement");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {error && (
+        <Alert className="border-red-200 bg-red-50">
+          <AlertDescription className="text-red-800">{error}</AlertDescription>
+        </Alert>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <Label htmlFor="title">Title</Label>
+          <Input
+            id="title"
+            type="text"
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            required
+            className="mt-1"
+            placeholder="Enter announcement title"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="content">Content</Label>
+          <textarea
+            id="content"
+            rows="4"
+            className="w-full mt-1 p-3 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+            value={formData.content}
+            onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+            required
+            placeholder="Write your announcement here..."
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="target_audience">Target Audience</Label>
+          <Select 
+            value={formData.target_audience} 
+            onValueChange={(value) => setFormData({ ...formData, target_audience: value })}
+          >
+            <SelectTrigger className="mt-1">
+              <SelectValue placeholder="Select target audience" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Users</SelectItem>
+              <SelectItem value="students">Students Only</SelectItem>
+              <SelectItem value="teachers">Teachers Only</SelectItem>
+              <SelectItem value="A5">Class A5 Only</SelectItem>
+              <SelectItem value="A6">Class A6 Only</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="image">Image (Optional)</Label>
+          <Input
+            id="image"
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+            className="mt-1"
+          />
+          {formData.image_data && (
+            <div className="mt-2">
+              <p className="text-sm text-green-600">✓ Image selected</p>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end space-x-3">
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={onCancel}
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button 
+            type="submit" 
+            className="bg-indigo-600 hover:bg-indigo-700" 
+            disabled={loading}
+          >
+            {loading ? "Creating..." : "Create Announcement"}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+// Announcement Card Component
+const AnnouncementCard = ({ announcement }) => {
+  return (
+    <div className="border rounded-lg p-6 bg-white/50 hover:bg-white/70 transition-colors">
+      <div className="flex justify-between items-start mb-3">
+        <div className="flex items-center space-x-2">
+          <h3 className="text-lg font-semibold text-gray-900">{announcement.title}</h3>
+        </div>
+        <div className="flex items-center space-x-2 text-xs text-gray-500">
+          <span>{new Date(announcement.created_at).toLocaleDateString()}</span>
+        </div>
+      </div>
+
+      <div className="mb-3">
+        <div className="flex items-center space-x-2 text-sm text-gray-600">
+          <span>by</span>
+          <span className="font-medium">{announcement.author_name}</span>
+          <RoleTag role={announcement.author_role} />
+        </div>
+      </div>
+
+      <div className="prose prose-sm max-w-none mb-4">
+        <p className="text-gray-700 whitespace-pre-wrap">{announcement.content}</p>
+      </div>
+
+      {announcement.image_data && (
+        <div className="mb-4">
+          <img
+            src={`data:image/jpeg;base64,${announcement.image_data}`}
+            alt="Announcement"
+            className="max-w-full h-auto rounded-lg shadow-md"
+            style={{ maxHeight: '300px' }}
+          />
+        </div>
+      )}
+
+      <div className="flex justify-between items-center text-xs text-gray-500">
+        <div className="flex items-center space-x-4">
+          <Badge variant="outline" className="text-xs">
+            Target: {announcement.target_audience}
+          </Badge>
+        </div>
+        <div>
+          {announcement.updated_at !== announcement.created_at && (
+            <span>Updated {new Date(announcement.updated_at).toLocaleDateString()}</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Timetable Management Component for Principals
+const TimetableManagement = ({ timetable, onTimetableUpdate }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editableTimetable, setEditableTimetable] = useState(timetable);
+
+  useEffect(() => {
+    setEditableTimetable(timetable);
+  }, [timetable]);
+
+  return (
+    <Card className="bg-white/80 backdrop-blur-sm shadow-lg">
+      <CardHeader>
+        <div className="flex justify-between items-center">
+          <CardTitle>Timetable Management</CardTitle>
+          <Button
+            onClick={() => setIsEditing(!isEditing)}
+            variant={isEditing ? "destructive" : "default"}
+            className={isEditing ? "" : "bg-indigo-600 hover:bg-indigo-700"}
+          >
+            <Edit className="w-4 h-4 mr-2" />
+            {isEditing ? "Cancel" : "Edit Timetable"}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isEditing ? (
+          <div className="space-y-4">
+            <Alert className="border-orange-200 bg-orange-50">
+              <AlertDescription className="text-orange-800">
+                <strong>Note:</strong> Timetable editing is a complex feature that would require a comprehensive form. 
+                For now, this shows the structure. In a full implementation, you would have detailed forms for each day/section/period.
+              </AlertDescription>
+            </Alert>
+            <div className="flex space-x-3">
+              <Button 
+                onClick={() => {
+                  // Here you would save the timetable changes
+                  setIsEditing(false);
+                  onTimetableUpdate();
+                }} 
+                className="bg-green-600 hover:bg-green-700"
+              >
+                Save Changes
+              </Button>
+              <Button variant="outline" onClick={() => setIsEditing(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        <TimetableView timetable={timetable} />
+      </CardContent>
+    </Card>
+  );
+};
+
 export default App;
