@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "User is experiencing CORS errors when deploying on Vercel. Register new user function fails with CORS policy blocking XMLHttpRequest and preflight request redirect issues. User also requested to add emergency alert feature for students with Fire/Unauthorized Access/Other options that notifies teachers and principal, with alert history accessible via hamburger menu."
+user_problem_statement: "Upgrade the Current QR Implementation - Currently students get a unique text code when scanning QR which they paste to mark attendance, but user wants it implemented within the APP with no text sharing. Students should be able to scan QR within the app and mark as present with NO text sharing so students can't share codes with each other."
 
 backend:
   - task: "Fix CORS configuration"
