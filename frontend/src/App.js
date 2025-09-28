@@ -1000,23 +1000,26 @@ const StudentDashboard = ({ user }) => {
 };
 
 const QRScannerCard = ({ onAttendanceMarked }) => {
+  const [showScanner, setShowScanner] = useState(false);
   const [qrInput, setQrInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
+  const [cameraError, setCameraError] = useState(false);
+  const [showTextFallback, setShowTextFallback] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const markAttendance = async (qrData) => {
     setLoading(true);
     setError("");
     setSuccess("");
 
     try {
-      await axios.post(`${API}/attendance/mark`, { qr_data: qrInput }, {
+      await axios.post(`${API}/attendance/mark`, { qr_data: qrData }, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
       });
       setSuccess("Attendance marked successfully!");
       setQrInput("");
+      setShowScanner(false);
       onAttendanceMarked();
     } catch (error) {
       setError(error.response?.data?.detail || "Failed to mark attendance");
@@ -1025,61 +1028,152 @@ const QRScannerCard = ({ onAttendanceMarked }) => {
     }
   };
 
+  const handleTextSubmit = async (e) => {
+    e.preventDefault();
+    await markAttendance(qrInput);
+  };
+
+  const handleScanSuccess = async (result) => {
+    if (result) {
+      await markAttendance(result);
+    }
+  };
+
+  const handleCameraError = () => {
+    setCameraError(true);
+    setShowScanner(false);
+    setShowTextFallback(true);
+    setError("Camera access failed. Please use the text input option below or check camera permissions.");
+  };
+
+  const startScanning = () => {
+    setCameraError(false);
+    setError("");
+    setSuccess("");
+    setShowScanner(true);
+    setShowTextFallback(false);
+  };
+
   return (
-    <Card className="bg-white/80 backdrop-blur-sm shadow-lg">
-      <CardHeader>
-        <CardTitle className="flex items-center">
-          <Camera className="w-5 h-5 mr-2" />
-          Scan QR Code for Attendance
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {error && (
-          <Alert className="mb-4 border-red-200 bg-red-50">
-            <AlertDescription className="text-red-800">{error}</AlertDescription>
-          </Alert>
-        )}
+    <>
+      {/* Fullscreen QR Scanner Modal */}
+      {showScanner && (
+        <QRCameraScanner 
+          onScanSuccess={handleScanSuccess}
+          onClose={() => setShowScanner(false)}
+          onError={handleCameraError}
+        />
+      )}
 
-        {success && (
-          <Alert className="mb-4 border-green-200 bg-green-50">
-            <CheckCircle className="w-4 h-4 text-green-600" />
-            <AlertDescription className="text-green-800">{success}</AlertDescription>
-          </Alert>
-        )}
+      <Card className="bg-white/80 backdrop-blur-sm shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Camera className="w-5 h-5 mr-2" />
+            Scan QR Code for Attendance
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {error && (
+            <Alert className="mb-4 border-red-200 bg-red-50">
+              <AlertDescription className="text-red-800">{error}</AlertDescription>
+            </Alert>
+          )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="qr_input">QR Code Data</Label>
-            <Input
-              id="qr_input"
-              type="text"
-              value={qrInput}
-              onChange={(e) => setQrInput(e.target.value)}
-              placeholder="Paste QR code data here or scan with camera"
-              required
-              data-testid="qr-input-field"
-              className="mt-1"
-            />
+          {success && (
+            <Alert className="mb-4 border-green-200 bg-green-50">
+              <CheckCircle className="w-4 h-4 text-green-600" />
+              <AlertDescription className="text-green-800">{success}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Main Camera Scanner Button */}
+          {!showTextFallback && (
+            <div className="space-y-4">
+              <Button 
+                onClick={startScanning}
+                className="w-full bg-blue-600 hover:bg-blue-700 py-6 text-lg"
+                disabled={loading}
+                data-testid="camera-scanner-button"
+              >
+                <Camera className="w-6 h-6 mr-3" />
+                Open Camera Scanner
+              </Button>
+              
+              {!cameraError && (
+                <div className="text-center">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setShowTextFallback(true)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    Having trouble? Use text input instead
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Text Input Fallback */}
+          {showTextFallback && (
+            <div className="space-y-4">
+              {cameraError && (
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    <strong>Camera unavailable:</strong> Please make sure camera permissions are enabled or use the text input below.
+                  </p>
+                </div>
+              )}
+              
+              <form onSubmit={handleTextSubmit} className="space-y-4">
+                <div>
+                  <Label htmlFor="qr_input">QR Code Data</Label>
+                  <Input
+                    id="qr_input"
+                    type="text"
+                    value={qrInput}
+                    onChange={(e) => setQrInput(e.target.value)}
+                    placeholder="Paste QR code data here"
+                    required
+                    data-testid="qr-input-field"
+                    className="mt-1"
+                  />
+                </div>
+
+                <div className="flex space-x-2">
+                  <Button 
+                    type="submit" 
+                    className="flex-1 bg-green-600 hover:bg-green-700" 
+                    disabled={loading}
+                    data-testid="mark-attendance-button"
+                  >
+                    {loading ? "Marking Attendance..." : "Mark Attendance"}
+                  </Button>
+                  
+                  {!cameraError && (
+                    <Button 
+                      type="button"
+                      variant="outline" 
+                      onClick={() => setShowTextFallback(false)}
+                      disabled={loading}
+                    >
+                      Back to Camera
+                    </Button>
+                  )}
+                </div>
+              </form>
+            </div>
+          )}
+
+          <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>How to use:</strong> Tap "Open Camera Scanner" to scan QR codes directly with your camera. 
+              Position the QR code within the square outline for automatic detection.
+            </p>
           </div>
-
-          <Button 
-            type="submit" 
-            className="w-full bg-green-600 hover:bg-green-700" 
-            disabled={loading}
-            data-testid="mark-attendance-button"
-          >
-            {loading ? "Marking Attendance..." : "Mark Attendance"}
-          </Button>
-        </form>
-
-        <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-          <p className="text-sm text-blue-800">
-            <strong>How to use:</strong> Ask your teacher to show the QR code, then copy the QR data and paste it above. 
-            In future versions, you'll be able to use your camera to scan directly.
-          </p>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </>
   );
 };
 
