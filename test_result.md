@@ -201,8 +201,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Principal role implementation"
-    - "Announcements API implementation"
+    - "QR Attendance System Backend Endpoints"
   stuck_tasks:
     - task: "Fix Vercel deployment routing configuration"
       implemented: true
