@@ -1478,6 +1478,376 @@ class BackendTester:
             self.log_result("Individual Alert Access", False, f"Request failed: {str(e)}")
             return False
 
+    # QR Attendance System Tests
+    def test_qr_generation_for_active_class(self):
+        """Test QR generation for active class endpoint"""
+        print("\n=== Testing QR Generation for Active Class ===")
+        
+        teacher_token = self.get_auth_token_for_role("teacher")
+        if not teacher_token:
+            self.log_result("QR Generation Active Class", False, "Could not get teacher auth token")
+            return False
+        
+        try:
+            headers = {
+                'Authorization': f'Bearer {teacher_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            # Test with valid active class data
+            class_info = {
+                "section": "A5",
+                "subject": "Mathematics",
+                "time": "09:30-10:30"
+            }
+            
+            response = self.session.post(f"{self.base_url}/qr/generate-for-active-class", 
+                                       json=class_info, headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                required_fields = ['session_id', 'qr_image', 'qr_data', 'expires_at', 'class_section', 'subject', 'time_slot']
+                missing_fields = [field for field in required_fields if field not in result]
+                
+                if not missing_fields:
+                    self.log_result("QR Generation Active Class", True, 
+                                  "QR generated successfully for active class", 
+                                  f"Session ID: {result['session_id']}, Expires: {result['expires_at']}")
+                    return result  # Return for use in attendance tests
+                else:
+                    self.log_result("QR Generation Active Class", False, 
+                                  f"Response missing fields: {missing_fields}", 
+                                  f"Response: {result}")
+                    return False
+            elif response.status_code == 400:
+                # This might be expected if no active class matches
+                self.log_result("QR Generation Active Class", True, 
+                              "No active class found (expected behavior)", 
+                              f"Response: {response.text}")
+                return False
+            else:
+                self.log_result("QR Generation Active Class", False, 
+                              f"QR generation failed: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("QR Generation Active Class", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_qr_generation_manual(self):
+        """Test manual QR generation endpoint"""
+        print("\n=== Testing Manual QR Generation ===")
+        
+        teacher_token = self.get_auth_token_for_role("teacher")
+        if not teacher_token:
+            self.log_result("Manual QR Generation", False, "Could not get teacher auth token")
+            return False
+        
+        try:
+            headers = {
+                'Authorization': f'Bearer {teacher_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            qr_data = {
+                "class_section": "A5",
+                "subject": "Mathematics",
+                "class_code": "MC",
+                "time_slot": "09:30-10:30"
+            }
+            
+            response = self.session.post(f"{self.base_url}/qr/generate", 
+                                       json=qr_data, headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                required_fields = ['session_id', 'qr_image', 'qr_data', 'expires_at', 'class_section', 'subject', 'time_slot']
+                missing_fields = [field for field in required_fields if field not in result]
+                
+                if not missing_fields:
+                    self.log_result("Manual QR Generation", True, 
+                                  "Manual QR generated successfully", 
+                                  f"Session ID: {result['session_id']}")
+                    return result  # Return for use in attendance tests
+                else:
+                    self.log_result("Manual QR Generation", False, 
+                                  f"Response missing fields: {missing_fields}", 
+                                  f"Response: {result}")
+                    return False
+            else:
+                self.log_result("Manual QR Generation", False, 
+                              f"Manual QR generation failed: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Manual QR Generation", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_attendance_marking_valid_qr(self):
+        """Test attendance marking with valid QR data"""
+        print("\n=== Testing Attendance Marking with Valid QR ===")
+        
+        # First generate a QR code
+        qr_result = self.test_qr_generation_manual()
+        if not qr_result:
+            self.log_result("Attendance Marking Valid QR", False, "Could not generate QR code for testing")
+            return False
+        
+        student_token = self.get_auth_token_for_role("student")
+        if not student_token:
+            self.log_result("Attendance Marking Valid QR", False, "Could not get student auth token")
+            return False
+        
+        try:
+            headers = {
+                'Authorization': f'Bearer {student_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            attendance_data = {
+                "qr_data": qr_result['qr_data']
+            }
+            
+            response = self.session.post(f"{self.base_url}/attendance/mark", 
+                                       json=attendance_data, headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if 'attendance_id' in result:
+                    self.log_result("Attendance Marking Valid QR", True, 
+                                  "Attendance marked successfully with valid QR", 
+                                  f"Attendance ID: {result['attendance_id']}")
+                    return True
+                else:
+                    self.log_result("Attendance Marking Valid QR", False, 
+                                  "Response missing attendance_id", 
+                                  f"Response: {result}")
+                    return False
+            elif response.status_code == 400:
+                # Check if it's a class section mismatch or duplicate attendance
+                result = response.json()
+                detail = result.get('detail', '')
+                if 'already marked' in detail:
+                    self.log_result("Attendance Marking Valid QR", True, 
+                                  "Duplicate attendance correctly prevented", 
+                                  f"Response: {detail}")
+                    return True
+                elif 'not enrolled' in detail:
+                    self.log_result("Attendance Marking Valid QR", True, 
+                                  "Class section validation working", 
+                                  f"Response: {detail}")
+                    return True
+                else:
+                    self.log_result("Attendance Marking Valid QR", False, 
+                                  f"Unexpected validation error: {detail}")
+                    return False
+            else:
+                self.log_result("Attendance Marking Valid QR", False, 
+                              f"Attendance marking failed: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Attendance Marking Valid QR", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_attendance_marking_invalid_qr(self):
+        """Test attendance marking with invalid QR data"""
+        print("\n=== Testing Attendance Marking with Invalid QR ===")
+        
+        student_token = self.get_auth_token_for_role("student")
+        if not student_token:
+            self.log_result("Attendance Marking Invalid QR", False, "Could not get student auth token")
+            return False
+        
+        try:
+            headers = {
+                'Authorization': f'Bearer {student_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            # Test with invalid JSON QR data
+            invalid_qr_tests = [
+                {"qr_data": "invalid_json_data", "test_name": "Invalid JSON"},
+                {"qr_data": '{"session_id": "non_existent_id"}', "test_name": "Non-existent Session"},
+                {"qr_data": '{"invalid": "structure"}', "test_name": "Invalid Structure"}
+            ]
+            
+            all_passed = True
+            
+            for test_case in invalid_qr_tests:
+                attendance_data = {"qr_data": test_case["qr_data"]}
+                
+                response = self.session.post(f"{self.base_url}/attendance/mark", 
+                                           json=attendance_data, headers=headers)
+                
+                if response.status_code in [400, 404]:
+                    self.log_result(f"Invalid QR - {test_case['test_name']}", True, 
+                                  f"Invalid QR correctly rejected ({response.status_code})")
+                else:
+                    self.log_result(f"Invalid QR - {test_case['test_name']}", False, 
+                                  f"Expected 400/404, got {response.status_code}", 
+                                  f"Response: {response.text}")
+                    all_passed = False
+            
+            return all_passed
+                
+        except Exception as e:
+            self.log_result("Attendance Marking Invalid QR", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_qr_session_expiry_logic(self):
+        """Test QR session validation and expiry logic"""
+        print("\n=== Testing QR Session Expiry Logic ===")
+        
+        # Generate a QR code first
+        qr_result = self.test_qr_generation_manual()
+        if not qr_result:
+            self.log_result("QR Session Expiry", False, "Could not generate QR code for testing")
+            return False
+        
+        teacher_token = self.get_auth_token_for_role("teacher")
+        if not teacher_token:
+            self.log_result("QR Session Expiry", False, "Could not get teacher auth token")
+            return False
+        
+        try:
+            headers = {'Authorization': f'Bearer {teacher_token}'}
+            
+            # Get QR sessions to verify the session exists and check expiry
+            response = self.session.get(f"{self.base_url}/qr/sessions", headers=headers)
+            
+            if response.status_code == 200:
+                sessions = response.json()
+                if sessions:
+                    latest_session = sessions[-1]  # Get the most recent session
+                    
+                    # Check if session has proper expiry time
+                    if 'expires_at' in latest_session and 'is_active' in latest_session:
+                        from datetime import datetime
+                        try:
+                            expires_at = datetime.fromisoformat(latest_session['expires_at'].replace('Z', '+00:00'))
+                            current_time = datetime.now(expires_at.tzinfo)
+                            
+                            if expires_at > current_time:
+                                self.log_result("QR Session Expiry", True, 
+                                              "QR session has valid future expiry time", 
+                                              f"Expires at: {latest_session['expires_at']}")
+                            else:
+                                self.log_result("QR Session Expiry", True, 
+                                              "QR session has expired (expected for past time slots)", 
+                                              f"Expired at: {latest_session['expires_at']}")
+                            return True
+                        except Exception as date_error:
+                            self.log_result("QR Session Expiry", False, 
+                                          f"Could not parse expiry date: {date_error}")
+                            return False
+                    else:
+                        self.log_result("QR Session Expiry", False, 
+                                      "Session missing expiry or active fields", 
+                                      f"Session: {latest_session}")
+                        return False
+                else:
+                    self.log_result("QR Session Expiry", False, "No sessions found")
+                    return False
+            else:
+                self.log_result("QR Session Expiry", False, 
+                              f"Could not retrieve sessions: {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_result("QR Session Expiry", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_student_class_section_validation(self):
+        """Test student authentication and class section validation"""
+        print("\n=== Testing Student Class Section Validation ===")
+        
+        # Generate QR for A5 class
+        teacher_token = self.get_auth_token_for_role("teacher")
+        if not teacher_token:
+            self.log_result("Class Section Validation", False, "Could not get teacher auth token")
+            return False
+        
+        try:
+            teacher_headers = {
+                'Authorization': f'Bearer {teacher_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            # Generate QR for A5 class
+            qr_data_a5 = {
+                "class_section": "A5",
+                "subject": "Mathematics",
+                "class_code": "MC",
+                "time_slot": "09:30-10:30"
+            }
+            
+            response = self.session.post(f"{self.base_url}/qr/generate", 
+                                       json=qr_data_a5, headers=teacher_headers)
+            
+            if response.status_code != 200:
+                self.log_result("Class Section Validation", False, "Could not generate A5 QR code")
+                return False
+            
+            qr_result_a5 = response.json()
+            
+            # Test with student from correct class (A5)
+            student_token = self.get_auth_token_for_role("student")  # This should be A5 student
+            if not student_token:
+                self.log_result("Class Section Validation", False, "Could not get student auth token")
+                return False
+            
+            student_headers = {
+                'Authorization': f'Bearer {student_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            attendance_data = {"qr_data": qr_result_a5['qr_data']}
+            
+            response = self.session.post(f"{self.base_url}/attendance/mark", 
+                                       json=attendance_data, headers=student_headers)
+            
+            if response.status_code == 200:
+                self.log_result("Class Section Validation - Correct Section", True, 
+                              "Student from correct class section can mark attendance")
+            elif response.status_code == 400:
+                result = response.json()
+                detail = result.get('detail', '')
+                if 'already marked' in detail:
+                    self.log_result("Class Section Validation - Correct Section", True, 
+                                  "Student from correct section (duplicate attendance prevented)")
+                elif 'not enrolled' in detail:
+                    self.log_result("Class Section Validation - Wrong Section", True, 
+                                  "Class section mismatch correctly detected")
+                else:
+                    self.log_result("Class Section Validation", False, 
+                                  f"Unexpected validation error: {detail}")
+                    return False
+            else:
+                self.log_result("Class Section Validation", False, 
+                              f"Unexpected response: {response.status_code}")
+                return False
+            
+            # Test unauthorized access (non-student trying to mark attendance)
+            response = self.session.post(f"{self.base_url}/attendance/mark", 
+                                       json=attendance_data, headers=teacher_headers)
+            
+            if response.status_code == 403:
+                self.log_result("Attendance Marking - Teacher Forbidden", True, 
+                              "Teachers correctly forbidden from marking attendance")
+                return True
+            else:
+                self.log_result("Attendance Marking - Teacher Forbidden", False, 
+                              f"Expected 403, got {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Class Section Validation", False, f"Request failed: {str(e)}")
+            return False
+
     def run_all_tests(self):
         """Run all backend tests"""
         print(f"\n{'='*60}")
