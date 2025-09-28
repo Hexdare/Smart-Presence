@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Badge } from "./components/ui/badge";
 import { Alert, AlertDescription } from "./components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
-import { QrCode, Users, Calendar, LogOut, Camera, CheckCircle, Clock, User, Megaphone, Plus, Edit, Trash2, Eye, AlertTriangle, Menu, Shield } from "lucide-react";
+import { QrCode, Users, Calendar, LogOut, Camera, CheckCircle, Clock, User, Megaphone, Plus, Edit, Trash2, Eye, AlertTriangle, Menu, Shield, X, ZoomIn, ZoomOut } from "lucide-react";
+import QrScanner from 'qr-scanner';
 import "./App.css";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL?.replace(/\/$/, '') || "";
