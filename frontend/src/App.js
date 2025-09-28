@@ -26,7 +26,29 @@ const App = () => {
 
   useEffect(() => {
     checkAuth();
+    initializeMobile();
   }, []);
+
+  const initializeMobile = async () => {
+    if (Capacitor.isNativePlatform()) {
+      // Set status bar style for mobile app
+      try {
+        await StatusBar.setStyle({ style: Style.Dark });
+        await StatusBar.setBackgroundColor({ color: '#1f2937' });
+      } catch (error) {
+        console.log('Status bar not available');
+      }
+
+      // Handle back button on Android
+      CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+        if (!canGoBack) {
+          CapacitorApp.exitApp();
+        } else {
+          window.history.back();
+        }
+      });
+    }
+  };
 
   const checkAuth = async () => {
     const token = localStorage.getItem("token");
