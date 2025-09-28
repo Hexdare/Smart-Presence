@@ -13,7 +13,7 @@ import { QrCode, Users, Calendar, LogOut, Camera, CheckCircle, Clock, User, Mega
 import "./App.css";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL?.replace(/\/$/, '') || "";
-const API = `${BACKEND_URL}/api`;
+const API = BACKEND_URL;
 
 const App = () => {
   const [user, setUser] = useState(null);
