@@ -979,22 +979,28 @@ async def get_emergency_alert(alert_id: str, current_user: User = Depends(get_cu
     return EmergencyAlert(**alert)
 
 # Add CORS middleware BEFORE including router
-cors_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
-# Handle wildcard patterns for Vercel deployment
+cors_origins_str = os.environ.get('CORS_ORIGINS', '*')
+raw_origins = [origin.strip() for origin in cors_origins_str.split(',')]
+
 allowed_origins = []
-for origin in cors_origins:
-    origin = origin.strip()
-    if origin == '*' or not origin.startswith('https://*.'):
-        allowed_origins.append(origin)
+allowed_origins_regex = []
+
+for origin in raw_origins:
+    if "*" in origin:
+        # Convert wildcard to a valid regex pattern
+        regex = origin.replace(".", r"\.").replace("*", ".*")
+        allowed_origins_regex.append(regex)
     else:
-        # For patterns like https://*.vercel.app, we'll use allow_origin_regex
-        continue
+        allowed_origins.append(origin)
+
+# Combine all regex patterns into a single regex string
+final_regex = "|".join(allowed_origins_regex) if allowed_origins_regex else None
 
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_origin_regex=final_regex,
     allow_credentials=True,
-    allow_origins=allowed_origins if allowed_origins != ['*'] else ["*"],
-    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_methods=["*"],
     allow_headers=["*"],
 )

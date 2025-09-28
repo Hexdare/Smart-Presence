@@ -7,17 +7,9 @@
       "config": {
         "workPath": "code/frontend"
       }
-    },
-    {
-      "src": "code/backend/server.py",
-      "use": "@vercel/python"
     }
   ],
   "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "code/backend/server.py"
-    },
     {
       "src": "/(.*)",
       "dest": "code/frontend/public/index.html"
