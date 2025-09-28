@@ -1869,6 +1869,14 @@ class BackendTester:
             self.test_protected_route,
             self.test_protected_route_without_token,
             
+            # QR Attendance System tests (PRIORITY - as requested)
+            self.test_qr_generation_for_active_class,
+            self.test_qr_generation_manual,
+            self.test_attendance_marking_valid_qr,
+            self.test_attendance_marking_invalid_qr,
+            self.test_qr_session_expiry_logic,
+            self.test_student_class_section_validation,
+            
             # Principal role tests
             self.test_principal_access_teacher_endpoints,
             self.test_principal_full_attendance_records,
