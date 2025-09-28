@@ -10,23 +10,20 @@ import sys
 import os
 from datetime import datetime
 
-# Get backend URL - test local backend first, then production
+# Get backend URL from frontend .env file
 def get_backend_url():
-    # Test local backend first since that's what we can control
-    local_url = "http://localhost:8001/api"
-    
-    # Also get production URL for reference
     try:
         with open('/app/frontend/.env', 'r') as f:
             for line in f:
                 if line.startswith('REACT_APP_BACKEND_URL='):
-                    prod_url = line.split('=', 1)[1].strip().rstrip('/') + '/api'
-                    print(f"Production URL from .env: {prod_url}")
-                    break
+                    backend_url = line.split('=', 1)[1].strip().rstrip('/') + '/api'
+                    print(f"Backend URL from frontend .env: {backend_url}")
+                    return backend_url
     except Exception as e:
         print(f"Error reading frontend .env: {e}")
     
-    return local_url
+    # Fallback to default
+    return "http://127.0.0.1:8000/api"
 
 BASE_URL = get_backend_url()
 print(f"Testing backend at: {BASE_URL}")
