@@ -3,7 +3,12 @@
   "appName": "QR Attendance",
   "webDir": "build",
   "server": {
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "allowNavigation": [
+      "phone-app-deploy-1.preview.emergentagent.com",
+      "smart-attendance-system-ur85.onrender.com",
+      "*.preview.emergentagent.com"
+    ]
   },
   "plugins": {
     "Camera": {
@@ -12,6 +17,12 @@
     "StatusBar": {
       "style": "DARK",
       "backgroundColor": "#1f2937"
+    },
+    "CapacitorHttp": {
+      "enabled": true
     }
+  },
+  "android": {
+    "allowMixedContent": true
   }
 }
