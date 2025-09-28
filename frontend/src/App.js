@@ -11,6 +11,9 @@ import { Alert, AlertDescription } from "./components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { QrCode, Users, Calendar, LogOut, Camera, CheckCircle, Clock, User, Megaphone, Plus, Edit, Trash2, Eye, AlertTriangle, Menu, Shield, X, ZoomIn, ZoomOut } from "lucide-react";
 import QrScanner from 'qr-scanner';
+import { Capacitor } from '@capacitor/core';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { App as CapacitorApp } from '@capacitor/app';
 import "./App.css";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL?.replace(/\/$/, '') || "";
