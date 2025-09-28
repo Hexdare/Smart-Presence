@@ -1177,6 +1177,192 @@ const QRScannerCard = ({ onAttendanceMarked }) => {
   );
 };
 
+// Full-screen QR Camera Scanner Component
+const QRCameraScanner = ({ onScanSuccess, onClose, onError }) => {
+  const videoRef = useRef(null);
+  const scannerRef = useRef(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [hasFlash, setHasFlash] = useState(false);
+
+  useEffect(() => {
+    let scanner = null;
+    
+    const startScanner = async () => {
+      if (!videoRef.current) return;
+
+      try {
+        // Check if QrScanner is supported
+        const hasCamera = await QrScanner.hasCamera();
+        if (!hasCamera) {
+          throw new Error("No camera found");
+        }
+
+        scanner = new QrScanner(
+          videoRef.current,
+          (result) => {
+            if (result && result.data) {
+              setIsScanning(false);
+              onScanSuccess(result.data);
+            }
+          },
+          {
+            returnDetailedScanResult: true,
+            highlightScanRegion: true,
+            highlightCodeOutline: true,
+            preferredCamera: 'environment', // Use back camera
+            maxScansPerSecond: 5,
+          }
+        );
+
+        await scanner.start();
+        setIsScanning(true);
+        scannerRef.current = scanner;
+
+        // Check if flash is available
+        if (scanner._qrEnginePromise) {
+          try {
+            const capabilities = await scanner._getCameraStream().getVideoTracks()[0].getCapabilities?.();
+            setHasFlash(capabilities?.torch === true);
+          } catch (e) {
+            // Flash not available
+          }
+        }
+
+      } catch (error) {
+        console.error("Scanner error:", error);
+        onError();
+      }
+    };
+
+    startScanner();
+
+    return () => {
+      if (scanner) {
+        scanner.stop();
+        scanner.destroy();
+      }
+    };
+  }, [onScanSuccess, onError]);
+
+  const handleZoomChange = (newZoom) => {
+    setZoomLevel(newZoom);
+    if (scannerRef.current) {
+      try {
+        const stream = scannerRef.current._getCameraStream();
+        const track = stream.getVideoTracks()[0];
+        const capabilities = track.getCapabilities();
+        
+        if (capabilities.zoom) {
+          track.applyConstraints({
+            advanced: [{ zoom: newZoom }]
+          });
+        }
+      } catch (error) {
+        console.warn("Zoom not supported:", error);
+      }
+    }
+  };
+
+  const handleClose = () => {
+    if (scannerRef.current) {
+      scannerRef.current.stop();
+      scannerRef.current.destroy();
+    }
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black">
+      {/* Video Element */}
+      <video 
+        ref={videoRef}
+        className="w-full h-full object-cover"
+        playsInline
+        muted
+      />
+      
+      {/* Overlay with scanning area */}
+      <div className="absolute inset-0 pointer-events-none">
+        {/* Top overlay */}
+        <div className="absolute top-0 left-0 right-0 bg-black bg-opacity-50 h-1/4"></div>
+        
+        {/* Bottom overlay */}
+        <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 h-1/4"></div>
+        
+        {/* Left overlay */}
+        <div className="absolute top-1/4 bottom-1/4 left-0 bg-black bg-opacity-50 w-1/8"></div>
+        
+        {/* Right overlay */}
+        <div className="absolute top-1/4 bottom-1/4 right-0 bg-black bg-opacity-50 w-1/8"></div>
+        
+        {/* Center scanning square outline */}
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 border-4 border-white rounded-lg pointer-events-none">
+          <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-500 rounded-tl-lg"></div>
+          <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-500 rounded-tr-lg"></div>
+          <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-blue-500 rounded-bl-lg"></div>
+          <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-blue-500 rounded-br-lg"></div>
+        </div>
+      </div>
+
+      {/* Controls */}
+      <div className="absolute top-4 left-4 right-4 flex justify-between items-center pointer-events-auto">
+        <Button
+          onClick={handleClose}
+          variant="ghost"
+          size="sm"
+          className="text-white bg-black bg-opacity-50 hover:bg-opacity-70 rounded-full p-2"
+        >
+          <X className="w-6 h-6" />
+        </Button>
+        
+        <div className="text-white bg-black bg-opacity-50 px-3 py-1 rounded-full text-sm">
+          {isScanning ? "Scanning..." : "Starting camera..."}
+        </div>
+      </div>
+
+      {/* Bottom Controls */}
+      <div className="absolute bottom-4 left-4 right-4 pointer-events-auto">
+        <div className="flex justify-center items-center space-x-4">
+          {/* Zoom Controls */}
+          <div className="flex items-center space-x-2 bg-black bg-opacity-50 rounded-full px-4 py-2">
+            <Button
+              onClick={() => handleZoomChange(1)}
+              variant="ghost"
+              size="sm"
+              className={`text-white px-3 py-1 rounded-full ${zoomLevel === 1 ? 'bg-blue-600' : ''}`}
+            >
+              1x
+            </Button>
+            <Button
+              onClick={() => handleZoomChange(2)}
+              variant="ghost"
+              size="sm"
+              className={`text-white px-3 py-1 rounded-full ${zoomLevel === 2 ? 'bg-blue-600' : ''}`}
+            >
+              2x
+            </Button>
+            <Button
+              onClick={() => handleZoomChange(3)}
+              variant="ghost"
+              size="sm"
+              className={`text-white px-3 py-1 rounded-full ${zoomLevel === 3 ? 'bg-blue-600' : ''}`}
+            >
+              3x
+            </Button>
+          </div>
+        </div>
+        
+        <div className="text-center mt-4">
+          <p className="text-white text-sm bg-black bg-opacity-50 inline-block px-3 py-1 rounded-full">
+            Position QR code within the square to scan
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const QRSessionsList = ({ sessions }) => {
   return (
     <Card className="bg-white/80 backdrop-blur-sm shadow-lg">
