@@ -427,14 +427,10 @@ const Register = ({ setError, error }) => {
                 </div>
               </div>
             )}
-            {(formData.role === "verifier" || formData.role === "system_admin") && (
+            {formData.role === "verifier" && (
               <div className="mt-2 p-3 bg-purple-50 rounded-lg">
                 <p className="text-sm text-purple-800">
-                  <strong>{formData.role === "verifier" ? "Document Verifier" : "System Admin"}:</strong> 
-                  {formData.role === "verifier" 
-                    ? " You'll be able to upload and verify certificates and documents."
-                    : " You'll have full system access including institution management and user administration."
-                  }
+                  <strong>Document Verifier:</strong> You'll be able to upload and verify certificates and documents.
                 </p>
               </div>
             )}
