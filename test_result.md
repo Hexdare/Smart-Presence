@@ -102,7 +102,14 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Upgrade the Current QR Implementation - Currently students get a unique text code when scanning QR which they paste to mark attendance, but user wants it implemented within the APP with no text sharing. Students should be able to scan QR within the app and mark as present with NO text sharing so students can't share codes with each other."
+user_problem_statement: "Build a Fake Degree/Certificate Recognition system alongside the existing attendance system. The system should:
+1. Keep existing attendance functionality 
+2. Add certificate verification using free OCR (Tesseract + PyPDF2/pdfplumber)
+3. Support both manual CSV/Excel upload and API integration for institutions
+4. Add new user roles: Verifier, Institution Admin, System Admin
+5. Implement hash-based verification with anomaly detection
+6. Create upload interface for certificate verification
+7. Build admin dashboard for institution management"
 
 backend:
   - task: "Fix CORS configuration"
