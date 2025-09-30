@@ -1,7 +1,7 @@
 # 🚀 QUICK MOBILE NETWORKING FIX
 
 ## ✅ **Good News**: Your backend is working fine!
-I tested `https://certifiscan.preview.emergentagent.com/api/auth/login` and it responds correctly.
+I tested `https://admin-doc-verify.preview.emergentagent.com/api/auth/login` and it responds correctly.
 
 The issue is that **mobile apps have stricter networking rules** than web browsers.
 
