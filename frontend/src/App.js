@@ -296,7 +296,6 @@ const Register = ({ setError, error }) => {
                   <SelectItem value="principal">Principal</SelectItem>
                   <SelectItem value="verifier">Document Verifier</SelectItem>
                   <SelectItem value="institution_admin">Institution Admin</SelectItem>
-                  <SelectItem value="system_admin">System Admin</SelectItem>
                 </SelectContent>
               </Select>
             </div>
