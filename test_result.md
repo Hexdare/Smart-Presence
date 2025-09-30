@@ -247,6 +247,30 @@ frontend:
         agent: "main"
         comment: "Fixed URL construction to prevent double slashes by removing trailing slash from REACT_APP_BACKEND_URL before concatenation"
 
+  - task: "Certificate Verification Dashboard Components"
+    implemented: true
+    working: "unknown"
+    file: "frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "unknown"
+        agent: "main"
+        comment: "Implemented certificate verification frontend: 1) Added new dashboard components for Verifier, Institution Admin, and System Admin roles, 2) Created DocumentUploadCard with drag-drop file upload for PDF/images, 3) Added CertificateUploadCard for CSV bulk upload, 4) Implemented institution management interface, 5) Updated navigation and role-based access, 6) Added proper file validation and upload progress indicators. Ready for testing."
+
+  - task: "Updated User Registration for New Roles"
+    implemented: true
+    working: "unknown"
+    file: "frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "unknown"
+        agent: "main"
+        comment: "Updated registration component: 1) Added new roles (verifier, institution_admin, system_admin) to role selection, 2) Added institution_id field for institution_admin role, 3) Added role-specific information and guidance, 4) Updated form validation and submission. Ready for testing."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
