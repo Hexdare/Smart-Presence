@@ -749,8 +749,9 @@ async def register_user(user_data: UserCreate):
             raise HTTPException(status_code=400, detail="Username already registered")
         
         # Validate role
-        if user_data.role not in ["teacher", "student", "principal"]:
-            raise HTTPException(status_code=400, detail="Role must be 'teacher', 'student', or 'principal'")
+        allowed_roles = ["teacher", "student", "principal", "verifier", "institution_admin", "system_admin"]
+        if user_data.role not in allowed_roles:
+            raise HTTPException(status_code=400, detail=f"Invalid role. Allowed roles: {', '.join(allowed_roles)}")
         
         # For students, validate required fields
         if user_data.role == "student":
