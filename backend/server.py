@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File, Form
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -7,7 +7,7 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timedelta, timezone
 import jwt
@@ -16,6 +16,19 @@ import qrcode
 import io
 import base64
 import json
+import hashlib
+import asyncio
+import tempfile
+import shutil
+import csv
+# OCR and document processing imports
+import pytesseract
+import cv2
+import numpy as np
+from PIL import Image
+import PyPDF2
+import pdfplumber
+import textdistance
 
 # Configure logging early
 logging.basicConfig(
