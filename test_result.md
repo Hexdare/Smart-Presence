@@ -279,15 +279,19 @@ metadata:
 
 test_plan:
   current_focus:
-    - "QR Attendance System Backend Endpoints"
+    - "Certificate Verification Models and OCR Setup"
+    - "Certificate Upload and Processing API"
+    - "Institution Management API"
+    - "Certificate Verification Dashboard Components"
+    - "Updated User Registration for New Roles"
   stuck_tasks:
     - task: "Fix Vercel deployment routing configuration"
       implemented: true
       working: "unknown"
       file: "vercel.json, api/index.py"
       stuck_count: 0
-      priority: "high"
-      needs_retesting: true
+      priority: "medium"
+      needs_retesting: false
       status_history:
         - working: "unknown"
           agent: "main"
