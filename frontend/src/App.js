@@ -464,6 +464,12 @@ const Dashboard = ({ user, logout }) => {
           <TeacherDashboard user={user} />
         ) : user.role === "principal" ? (
           <PrincipalDashboard user={user} />
+        ) : user.role === "verifier" ? (
+          <VerifierDashboard user={user} />
+        ) : user.role === "institution_admin" ? (
+          <InstitutionAdminDashboard user={user} />
+        ) : user.role === "system_admin" ? (
+          <SystemAdminDashboard user={user} />
         ) : (
           <StudentDashboard user={user} />
         )}
