@@ -74,4 +74,4 @@ PyPDF2==3.0.1
 pdfplumber==0.10.0
 opencv-python==4.10.0.84
 textdistance==4.6.3
-pdfminer.six==20250506
+pdfminer.six
