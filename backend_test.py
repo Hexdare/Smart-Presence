@@ -10,11 +10,23 @@ import sys
 import os
 from datetime import datetime
 
-# Get backend URL - use the actual backend port
+# Get backend URL - use the external URL from frontend .env
 def get_backend_url():
-    # Backend is running on port 8001 as per supervisor logs
+    try:
+        # Read the backend URL from frontend .env file
+        with open('/app/frontend/.env', 'r') as f:
+            for line in f:
+                if line.startswith('REACT_APP_BACKEND_URL='):
+                    backend_base = line.split('=', 1)[1].strip()
+                    backend_url = f"{backend_base}/api"
+                    print(f"Backend URL from .env: {backend_url}")
+                    return backend_url
+    except Exception as e:
+        print(f"Could not read backend URL from .env: {e}")
+    
+    # Fallback to local URL
     backend_url = "http://127.0.0.1:8001/api"
-    print(f"Backend URL: {backend_url}")
+    print(f"Fallback Backend URL: {backend_url}")
     return backend_url
 
 BASE_URL = get_backend_url()
