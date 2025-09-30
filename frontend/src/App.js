@@ -408,6 +408,37 @@ const Register = ({ setError, error }) => {
                 </div>
               </div>
             )}
+            {formData.role === "institution_admin" && (
+              <div>
+                <Label htmlFor="institution_id">Institution ID</Label>
+                <Input
+                  id="institution_id"
+                  type="text"
+                  value={formData.institution_id}
+                  onChange={(e) => setFormData({ ...formData, institution_id: e.target.value })}
+                  required
+                  placeholder="Enter institution ID from system admin"
+                  className="mt-1"
+                />
+                <div className="mt-2 p-3 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    <strong>Institution Admin:</strong> You'll be able to manage certificate databases 
+                    and upload certificates via CSV for your institution.
+                  </p>
+                </div>
+              </div>
+            )}
+            {(formData.role === "verifier" || formData.role === "system_admin") && (
+              <div className="mt-2 p-3 bg-purple-50 rounded-lg">
+                <p className="text-sm text-purple-800">
+                  <strong>{formData.role === "verifier" ? "Document Verifier" : "System Admin"}:</strong> 
+                  {formData.role === "verifier" 
+                    ? " You'll be able to upload and verify certificates and documents."
+                    : " You'll have full system access including institution management and user administration."
+                  }
+                </p>
+              </div>
+            )}
             <Button 
               type="submit" 
               className="w-full bg-indigo-600 hover:bg-indigo-700" 
