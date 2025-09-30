@@ -1,0 +1,8 @@
+{
+  "system_admin": {
+    "username": "admin",
+    "password": "admin123",
+    "full_name": "System Administrator",
+    "role": "system_admin"
+  }
+}
