@@ -770,6 +770,15 @@ async def register_user(user_data: UserCreate):
             # Principals have all permissions, no specific validation needed
             pass
         
+        # For institution admins, validate institution_id is provided
+        if user_data.role == "institution_admin":
+            if not user_data.institution_id:
+                raise HTTPException(status_code=400, detail="Institution ID is required for institution admins")
+        
+        # For verifiers and system_admins, no additional validation required
+        if user_data.role in ["verifier", "system_admin"]:
+            pass
+        
         # Create user
         user_dict = user_data.dict()
         user_dict["password_hash"] = get_password_hash(user_data.password)
