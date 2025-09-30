@@ -2118,6 +2118,13 @@ class BackendTester:
         
         # Run tests in order
         tests = [
+            # System Admin Tests (PRIORITY - as requested)
+            self.test_system_admin_json_file_exists,
+            self.test_system_admin_login,
+            self.test_system_admin_user_retrieval,
+            self.test_system_admin_registration_blocked,
+            self.test_allowed_roles_registration,
+            
             # Basic functionality tests
             self.test_cors_preflight,
             self.test_cors_actual_request,
