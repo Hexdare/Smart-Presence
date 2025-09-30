@@ -270,6 +270,114 @@ class EmergencyAlertCreate(BaseModel):
 class EmergencyAlertStatusUpdate(BaseModel):
     status: str  # "acknowledged", "resolved"
 
+# Certificate Verification Models
+class Institution(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    code: str  # Unique institution code
+    type: str  # "university", "college", "institute"
+    state: str
+    city: str
+    established_year: int
+    accreditation: Optional[str] = None
+    contact_email: str
+    contact_phone: str
+    website: Optional[str] = None
+    is_verified: bool = False
+    verification_hash: str  # For hash-based verification
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class InstitutionCreate(BaseModel):
+    name: str
+    code: str
+    type: str
+    state: str
+    city: str
+    established_year: int
+    accreditation: Optional[str] = None
+    contact_email: str
+    contact_phone: str
+    website: Optional[str] = None
+
+class Certificate(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    certificate_id: str  # Certificate number from institution
+    student_name: str
+    father_name: Optional[str] = None
+    roll_number: str
+    registration_number: str
+    course_name: str
+    course_type: str  # "degree", "diploma", "certificate"
+    course_duration: str
+    passing_year: int
+    grade: str
+    percentage: Optional[float] = None
+    cgpa: Optional[float] = None
+    institution_id: str
+    institution_name: str
+    issued_date: datetime
+    certificate_hash: str  # Hash for verification
+    metadata: dict = {}  # Additional certificate details
+    is_verified: bool = True
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class CertificateCreate(BaseModel):
+    certificate_id: str
+    student_name: str
+    father_name: Optional[str] = None
+    roll_number: str
+    registration_number: str
+    course_name: str
+    course_type: str
+    course_duration: str
+    passing_year: int
+    grade: str
+    percentage: Optional[float] = None
+    cgpa: Optional[float] = None
+    institution_id: str
+    issued_date: datetime
+    metadata: dict = {}
+
+class VerificationRequest(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    requester_id: str
+    requester_name: str
+    requester_organization: Optional[str] = None
+    file_path: str
+    file_type: str  # "pdf", "jpg", "png", etc.
+    file_size: int
+    ocr_text: Optional[str] = None
+    extracted_data: dict = {}  # Structured data from OCR
+    verification_status: str = "pending"  # "pending", "processing", "verified", "rejected", "failed"
+    confidence_score: Optional[float] = None
+    matched_certificate_id: Optional[str] = None
+    anomalies_detected: List[str] = []
+    verification_notes: Optional[str] = None
+    processed_by: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    processed_at: Optional[datetime] = None
+
+class VerificationRequestCreate(BaseModel):
+    requester_organization: Optional[str] = None
+
+class VerificationResult(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    verification_request_id: str
+    is_authentic: bool
+    confidence_score: float
+    matched_certificate: Optional[dict] = None
+    anomalies: List[dict] = []
+    verification_details: dict = {}
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class DocumentAnalysis(BaseModel):
+    text_extracted: str
+    confidence_score: float
+    detected_fields: dict
+    anomalies: List[str]
+    processing_time: float
+
 # Utility functions
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
