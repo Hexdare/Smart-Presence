@@ -748,8 +748,8 @@ async def register_user(user_data: UserCreate):
             logger.warning(f"Username {user_data.username} already registered")
             raise HTTPException(status_code=400, detail="Username already registered")
         
-        # Validate role
-        allowed_roles = ["teacher", "student", "principal", "verifier", "institution_admin", "system_admin"]
+        # Validate role (system_admin is not registerable - use pre-configured credentials)
+        allowed_roles = ["teacher", "student", "principal", "verifier", "institution_admin"]
         if user_data.role not in allowed_roles:
             raise HTTPException(status_code=400, detail=f"Invalid role. Allowed roles: {', '.join(allowed_roles)}")
         
