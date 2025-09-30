@@ -701,6 +701,30 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     except jwt.PyJWTError:
         raise credentials_exception
     
+    # First check if it's system admin
+    try:
+        import json
+        from pathlib import Path
+        
+        admin_file = Path("/app/backend/system_admin.json")
+        if admin_file.exists():
+            with open(admin_file, 'r') as f:
+                admin_data = json.load(f)
+                system_admin = admin_data.get("system_admin")
+                
+                if system_admin and system_admin["username"] == username:
+                    # Return system admin user object
+                    return User(
+                        id=str(uuid.uuid4()),
+                        username=system_admin["username"],
+                        password_hash="",  # Not needed for auth check
+                        role=system_admin["role"],
+                        full_name=system_admin["full_name"]
+                    )
+    except Exception as e:
+        logger.error(f"System admin user check failed: {str(e)}")
+    
+    # Check regular users in database
     user = await db.users.find_one({"username": username})
     if user is None:
         raise credentials_exception
