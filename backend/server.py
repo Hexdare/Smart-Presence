@@ -408,6 +408,284 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+# OCR and Document Processing Functions
+def preprocess_image(image_path: str) -> np.ndarray:
+    """Preprocess image for better OCR results"""
+    try:
+        # Read image
+        img = cv2.imread(image_path)
+        if img is None:
+            # Try with PIL if cv2 fails
+            pil_img = Image.open(image_path)
+            img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+        
+        # Convert to grayscale
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        
+        # Apply denoising
+        denoised = cv2.fastNlMeansDenoising(gray)
+        
+        # Apply adaptive threshold
+        thresh = cv2.adaptiveThreshold(
+            denoised, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
+        )
+        
+        return thresh
+    except Exception as e:
+        logger.error(f"Image preprocessing failed: {str(e)}")
+        return None
+
+def extract_text_from_image(image_path: str) -> Dict[str, Any]:
+    """Extract text from image using Tesseract OCR"""
+    try:
+        start_time = datetime.now()
+        
+        # Preprocess image
+        processed_img = preprocess_image(image_path)
+        
+        if processed_img is None:
+            # Fallback to direct OCR
+            text = pytesseract.image_to_string(Image.open(image_path))
+        else:
+            # Use processed image
+            text = pytesseract.image_to_string(processed_img)
+        
+        # Get confidence data
+        data = pytesseract.image_to_data(Image.open(image_path), output_type=pytesseract.Output.DICT)
+        confidences = [int(conf) for conf in data['conf'] if int(conf) > 0]
+        avg_confidence = sum(confidences) / len(confidences) if confidences else 0
+        
+        processing_time = (datetime.now() - start_time).total_seconds()
+        
+        return {
+            "text": text.strip(),
+            "confidence": avg_confidence,
+            "processing_time": processing_time,
+            "method": "tesseract_ocr"
+        }
+    except Exception as e:
+        logger.error(f"OCR processing failed: {str(e)}")
+        return {
+            "text": "",
+            "confidence": 0,
+            "processing_time": 0,
+            "method": "tesseract_ocr",
+            "error": str(e)
+        }
+
+def extract_text_from_pdf(pdf_path: str) -> Dict[str, Any]:
+    """Extract text from PDF using PyPDF2 and pdfplumber"""
+    try:
+        start_time = datetime.now()
+        text = ""
+        metadata = {}
+        
+        # First try with pdfplumber (better for complex layouts)
+        try:
+            with pdfplumber.open(pdf_path) as pdf:
+                metadata = {
+                    "pages": len(pdf.pages),
+                    "metadata": pdf.metadata or {}
+                }
+                for page in pdf.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text + "\n"
+        except Exception as e:
+            logger.warning(f"pdfplumber failed, trying PyPDF2: {str(e)}")
+            
+            # Fallback to PyPDF2
+            with open(pdf_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                metadata = {
+                    "pages": len(pdf_reader.pages),
+                    "metadata": pdf_reader.metadata or {}
+                }
+                for page in pdf_reader.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text + "\n"
+        
+        processing_time = (datetime.now() - start_time).total_seconds()
+        
+        return {
+            "text": text.strip(),
+            "confidence": 95.0,  # PDF text extraction is usually very reliable
+            "processing_time": processing_time,
+            "method": "pdf_extraction",
+            "metadata": metadata
+        }
+    except Exception as e:
+        logger.error(f"PDF processing failed: {str(e)}")
+        return {
+            "text": "",
+            "confidence": 0,
+            "processing_time": 0,
+            "method": "pdf_extraction",
+            "error": str(e)
+        }
+
+def extract_certificate_fields(text: str) -> Dict[str, Any]:
+    """Extract structured data from certificate text using pattern matching"""
+    import re
+    
+    fields = {}
+    
+    # Common certificate patterns
+    patterns = {
+        "name": [
+            r"(?:name|student|candidate)[:.]?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)",
+            r"(?:mr|ms|miss)\.?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)",
+            r"(?:this is to certify that)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)"
+        ],
+        "father_name": [
+            r"(?:father|s/o|son of|daughter of)[:.]?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)",
+            r"(?:father's name)[:.]?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)"
+        ],
+        "roll_number": [
+            r"(?:roll|roll no|enrollment|enroll)[:.]?\s*([A-Z0-9]+)",
+            r"(?:student id|id no)[:.]?\s*([A-Z0-9]+)"
+        ],
+        "registration_number": [
+            r"(?:registration|reg no|registration no)[:.]?\s*([A-Z0-9]+)",
+        ],
+        "course": [
+            r"(?:course|degree|diploma|program)[:.]?\s*([A-Za-z\s&]+)",
+            r"(?:bachelor|master|btech|be|mtech|me|bca|mca|bsc|msc)[\s\w]*",
+        ],
+        "year": [
+            r"(?:year|passed|passing|completion)[:.]?\s*(\d{4})",
+            r"(?:in the year|academic year)[:.]?\s*(\d{4})",
+        ],
+        "grade": [
+            r"(?:grade|class|division)[:.]?\s*([A-Z\+\-]+)",
+            r"(?:with|secured)[:.]?\s*([A-Z\+\-]+)\s*(?:grade|class)"
+        ],
+        "percentage": [
+            r"(\d+\.?\d*)%",
+            r"(?:percentage|marks)[:.]?\s*(\d+\.?\d*)"
+        ],
+        "cgpa": [
+            r"(?:cgpa|gpa)[:.]?\s*(\d+\.?\d*)",
+        ]
+    }
+    
+    # Extract fields using patterns
+    for field, field_patterns in patterns.items():
+        for pattern in field_patterns:
+            match = re.search(pattern, text.lower())
+            if match:
+                fields[field] = match.group(1).strip()
+                break
+    
+    return fields
+
+def detect_anomalies(text: str, extracted_fields: Dict[str, Any]) -> List[str]:
+    """Detect potential anomalies in certificate text"""
+    anomalies = []
+    
+    # Check for suspicious patterns
+    suspicious_patterns = [
+        r"photoshop",
+        r"edit",
+        r"modified",
+        r"fake",
+        r"duplicate"
+    ]
+    
+    for pattern in suspicious_patterns:
+        if re.search(pattern, text.lower()):
+            anomalies.append(f"Suspicious text detected: {pattern}")
+    
+    # Check for inconsistent formatting
+    if text:
+        # Check for unusual character patterns
+        if len(re.findall(r'[^\w\s]', text)) > len(text) * 0.1:
+            anomalies.append("Unusual character density detected")
+        
+        # Check for mixed fonts (approximate)
+        if len(set(text)) / len(text) > 0.3:
+            anomalies.append("Possible mixed font usage detected")
+    
+    # Validate extracted fields
+    if "year" in extracted_fields:
+        try:
+            year = int(extracted_fields["year"])
+            current_year = datetime.now().year
+            if year > current_year or year < 1950:
+                anomalies.append(f"Invalid graduation year: {year}")
+        except ValueError:
+            anomalies.append("Invalid year format")
+    
+    if "percentage" in extracted_fields:
+        try:
+            percentage = float(extracted_fields["percentage"])
+            if percentage > 100 or percentage < 0:
+                anomalies.append(f"Invalid percentage: {percentage}")
+        except ValueError:
+            anomalies.append("Invalid percentage format")
+    
+    return anomalies
+
+def generate_certificate_hash(certificate_data: Dict[str, Any]) -> str:
+    """Generate a hash for certificate verification"""
+    # Create a canonical string representation
+    keys = sorted(certificate_data.keys())
+    canonical_string = ""
+    
+    for key in keys:
+        if key in certificate_data and certificate_data[key] is not None:
+            canonical_string += f"{key}:{str(certificate_data[key])}"
+    
+    # Generate SHA-256 hash
+    hash_object = hashlib.sha256(canonical_string.encode())
+    return hash_object.hexdigest()
+
+async def process_document(file_path: str, file_type: str) -> DocumentAnalysis:
+    """Main document processing function"""
+    try:
+        start_time = datetime.now()
+        
+        if file_type.lower() == 'pdf':
+            extraction_result = extract_text_from_pdf(file_path)
+        else:
+            extraction_result = extract_text_from_image(file_path)
+        
+        if not extraction_result["text"]:
+            return DocumentAnalysis(
+                text_extracted="",
+                confidence_score=0,
+                detected_fields={},
+                anomalies=["No text could be extracted from document"],
+                processing_time=(datetime.now() - start_time).total_seconds()
+            )
+        
+        # Extract structured fields
+        fields = extract_certificate_fields(extraction_result["text"])
+        
+        # Detect anomalies
+        anomalies = detect_anomalies(extraction_result["text"], fields)
+        
+        processing_time = (datetime.now() - start_time).total_seconds()
+        
+        return DocumentAnalysis(
+            text_extracted=extraction_result["text"],
+            confidence_score=extraction_result["confidence"],
+            detected_fields=fields,
+            anomalies=anomalies,
+            processing_time=processing_time
+        )
+        
+    except Exception as e:
+        logger.error(f"Document processing failed: {str(e)}")
+        return DocumentAnalysis(
+            text_extracted="",
+            confidence_score=0,
+            detected_fields={},
+            anomalies=[f"Processing error: {str(e)}"],
+            processing_time=0
+        )
+
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
