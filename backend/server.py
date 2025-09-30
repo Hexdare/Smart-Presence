@@ -798,6 +798,28 @@ async def register_user(user_data: UserCreate):
 
 @api_router.post("/auth/login", response_model=Token)
 async def login_user(user_credentials: UserLogin):
+    # First check if it's system admin login
+    try:
+        import json
+        from pathlib import Path
+        
+        admin_file = Path("/app/backend/system_admin.json")
+        if admin_file.exists():
+            with open(admin_file, 'r') as f:
+                admin_data = json.load(f)
+                system_admin = admin_data.get("system_admin")
+                
+                if (system_admin and 
+                    system_admin["username"] == user_credentials.username and
+                    system_admin["password"] == user_credentials.password):
+                    
+                    # Create access token for system admin
+                    access_token = create_access_token(data={"sub": user_credentials.username})
+                    return {"access_token": access_token, "token_type": "bearer"}
+    except Exception as e:
+        logger.error(f"System admin login check failed: {str(e)}")
+    
+    # Check regular users in database
     user = await db.users.find_one({"username": user_credentials.username})
     if not user or not verify_password(user_credentials.password, user["password_hash"]):
         raise HTTPException(
