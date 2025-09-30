@@ -177,6 +177,7 @@ class UserCreate(BaseModel):
     student_id: Optional[str] = None
     class_section: Optional[str] = None
     subjects: Optional[List[str]] = None
+    institution_id: Optional[str] = None
     full_name: str
 
 class UserLogin(BaseModel):
