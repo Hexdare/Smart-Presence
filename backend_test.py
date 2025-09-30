@@ -1837,6 +1837,276 @@ class BackendTester:
             self.log_result("Class Section Validation", False, f"Request failed: {str(e)}")
             return False
 
+    # System Admin Tests
+    def test_system_admin_json_file_exists(self):
+        """Test that system_admin.json file exists and contains correct credentials"""
+        print("\n=== Testing System Admin JSON File ===")
+        
+        try:
+            import json
+            from pathlib import Path
+            
+            admin_file = Path("/app/backend/system_admin.json")
+            
+            if not admin_file.exists():
+                self.log_result("System Admin JSON File", False, "system_admin.json file not found")
+                return False
+            
+            with open(admin_file, 'r') as f:
+                admin_data = json.load(f)
+            
+            system_admin = admin_data.get("system_admin")
+            if not system_admin:
+                self.log_result("System Admin JSON File", False, "system_admin key not found in JSON")
+                return False
+            
+            required_fields = ["username", "password", "full_name", "role"]
+            missing_fields = [field for field in required_fields if field not in system_admin]
+            
+            if missing_fields:
+                self.log_result("System Admin JSON File", False, 
+                              f"Missing required fields: {missing_fields}")
+                return False
+            
+            # Verify expected values
+            if (system_admin["username"] == "admin" and 
+                system_admin["password"] == "admin123" and
+                system_admin["role"] == "system_admin"):
+                self.log_result("System Admin JSON File", True, 
+                              "system_admin.json file exists with correct credentials", 
+                              f"Username: {system_admin['username']}, Role: {system_admin['role']}")
+                return True
+            else:
+                self.log_result("System Admin JSON File", False, 
+                              "Incorrect credentials in system_admin.json", 
+                              f"Found: {system_admin}")
+                return False
+                
+        except Exception as e:
+            self.log_result("System Admin JSON File", False, f"Error reading file: {str(e)}")
+            return False
+
+    def test_system_admin_login(self):
+        """Test system admin login with JSON file authentication"""
+        print("\n=== Testing System Admin Login ===")
+        
+        try:
+            login_data = {
+                "username": "admin",
+                "password": "admin123"
+            }
+            
+            headers = {
+                'Content-Type': 'application/json',
+                'Origin': 'https://code-pi-rust.vercel.app'
+            }
+            
+            response = self.session.post(f"{self.base_url}/auth/login", 
+                                       json=login_data, headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if 'access_token' in result and 'token_type' in result:
+                    # Store the system admin token for further tests
+                    self.system_admin_token = result['access_token']
+                    self.log_result("System Admin Login", True, 
+                                  "System admin login successful, JWT token generated", 
+                                  f"Token type: {result['token_type']}")
+                    return True
+                else:
+                    self.log_result("System Admin Login", False, 
+                                  "Login response missing token fields", 
+                                  f"Response: {result}")
+                    return False
+            else:
+                self.log_result("System Admin Login", False, 
+                              f"Login failed with status: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("System Admin Login", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_system_admin_user_retrieval(self):
+        """Test system admin user information retrieval using JWT token"""
+        print("\n=== Testing System Admin User Retrieval ===")
+        
+        # First ensure we have a system admin token
+        if not hasattr(self, 'system_admin_token') or not self.system_admin_token:
+            if not self.test_system_admin_login():
+                self.log_result("System Admin User Retrieval", False, "Could not get system admin token")
+                return False
+        
+        try:
+            headers = {
+                'Authorization': f'Bearer {self.system_admin_token}',
+                'Origin': 'https://code-pi-rust.vercel.app'
+            }
+            
+            response = self.session.get(f"{self.base_url}/auth/me", headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                
+                # Verify required fields are present
+                required_fields = ['username', 'role', 'full_name']
+                missing_fields = [field for field in required_fields if field not in result]
+                
+                if missing_fields:
+                    self.log_result("System Admin User Retrieval", False, 
+                                  f"Response missing fields: {missing_fields}", 
+                                  f"Response: {result}")
+                    return False
+                
+                # Verify correct values
+                if (result['username'] == 'admin' and 
+                    result['role'] == 'system_admin' and
+                    result['full_name'] == 'System Administrator'):
+                    self.log_result("System Admin User Retrieval", True, 
+                                  "System admin user information correctly returned", 
+                                  f"Username: {result['username']}, Role: {result['role']}, Name: {result['full_name']}")
+                    return True
+                else:
+                    self.log_result("System Admin User Retrieval", False, 
+                                  "Incorrect user information returned", 
+                                  f"Expected: admin/system_admin/System Administrator, Got: {result['username']}/{result['role']}/{result['full_name']}")
+                    return False
+            else:
+                self.log_result("System Admin User Retrieval", False, 
+                              f"User retrieval failed: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("System Admin User Retrieval", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_system_admin_registration_blocked(self):
+        """Test that system_admin role cannot be registered via API"""
+        print("\n=== Testing System Admin Registration Restriction ===")
+        
+        try:
+            system_admin_data = {
+                "username": "test_system_admin",
+                "password": "testpass123",
+                "role": "system_admin",
+                "full_name": "Test System Admin"
+            }
+            
+            headers = {
+                'Content-Type': 'application/json',
+                'Origin': 'https://code-pi-rust.vercel.app'
+            }
+            
+            response = self.session.post(f"{self.base_url}/auth/register", 
+                                       json=system_admin_data, headers=headers)
+            
+            if response.status_code == 400:
+                result = response.json()
+                detail = result.get('detail', '')
+                if 'Invalid role' in detail or 'system_admin' in detail:
+                    self.log_result("System Admin Registration Blocked", True, 
+                                  "System admin registration correctly blocked", 
+                                  f"Error message: {detail}")
+                    return True
+                else:
+                    self.log_result("System Admin Registration Blocked", False, 
+                                  "Wrong error message for blocked registration", 
+                                  f"Expected role validation error, got: {detail}")
+                    return False
+            else:
+                self.log_result("System Admin Registration Blocked", False, 
+                              f"Expected 400 status, got: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("System Admin Registration Blocked", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_allowed_roles_registration(self):
+        """Test that only allowed roles can be registered"""
+        print("\n=== Testing Allowed Roles Registration ===")
+        
+        allowed_roles = ["teacher", "student", "principal", "verifier", "institution_admin"]
+        all_passed = True
+        
+        for role in allowed_roles:
+            try:
+                # Create appropriate test data for each role
+                if role == "student":
+                    user_data = {
+                        "username": f"test_{role}_user_2",
+                        "password": "testpass123",
+                        "role": role,
+                        "student_id": "TEST002",
+                        "class_section": "A6",
+                        "full_name": f"Test {role.title()} User"
+                    }
+                elif role == "teacher":
+                    user_data = {
+                        "username": f"test_{role}_user_2",
+                        "password": "testpass123",
+                        "role": role,
+                        "subjects": ["Physics"],
+                        "full_name": f"Test {role.title()} User"
+                    }
+                elif role == "institution_admin":
+                    user_data = {
+                        "username": f"test_{role}_user_2",
+                        "password": "testpass123",
+                        "role": role,
+                        "institution_id": "INST001",
+                        "full_name": f"Test {role.title()} User"
+                    }
+                else:
+                    user_data = {
+                        "username": f"test_{role}_user_2",
+                        "password": "testpass123",
+                        "role": role,
+                        "full_name": f"Test {role.title()} User"
+                    }
+                
+                headers = {
+                    'Content-Type': 'application/json',
+                    'Origin': 'https://code-pi-rust.vercel.app'
+                }
+                
+                response = self.session.post(f"{self.base_url}/auth/register", 
+                                           json=user_data, headers=headers)
+                
+                if response.status_code in [200, 400]:  # 400 might be "already registered"
+                    if response.status_code == 200:
+                        result = response.json()
+                        if 'user_id' in result:
+                            self.log_result(f"Allowed Role Registration - {role}", True, 
+                                          f"{role.title()} role registration allowed")
+                        else:
+                            self.log_result(f"Allowed Role Registration - {role}", False, 
+                                          "Registration response missing user_id")
+                            all_passed = False
+                    else:  # 400 status
+                        result = response.json()
+                        if "already registered" in result.get('detail', ''):
+                            self.log_result(f"Allowed Role Registration - {role}", True, 
+                                          f"{role.title()} role registration allowed (user exists)")
+                        else:
+                            self.log_result(f"Allowed Role Registration - {role}", False, 
+                                          f"Unexpected validation error: {result.get('detail')}")
+                            all_passed = False
+                else:
+                    self.log_result(f"Allowed Role Registration - {role}", False, 
+                                  f"Registration failed: {response.status_code}", 
+                                  f"Response: {response.text}")
+                    all_passed = False
+                    
+            except Exception as e:
+                self.log_result(f"Allowed Role Registration - {role}", False, f"Request failed: {str(e)}")
+                all_passed = False
+        
+        return all_passed
+
     def run_all_tests(self):
         """Run all backend tests"""
         print(f"\n{'='*60}")
