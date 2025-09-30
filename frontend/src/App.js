@@ -2151,4 +2151,631 @@ const EmergencyAlertsHistory = ({ onClose, user }) => {
   );
 };
 
+// Certificate Verification Dashboard Components
+const VerifierDashboard = ({ user }) => {
+  const [activeTab, setActiveTab] = useState("verify");
+  const [verificationRequests, setVerificationRequests] = useState([]);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadResult, setUploadResult] = useState(null);
+
+  const handleFileUpload = async (file, organization) => {
+    setUploading(true);
+    setUploadResult(null);
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      if (organization) {
+        formData.append('requester_organization', organization);
+      }
+
+      const token = localStorage.getItem("token");
+      const response = await axios.post(`${API}/certificates/upload`, formData, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      setUploadResult({
+        success: true,
+        message: response.data.message,
+        verificationId: response.data.verification_id
+      });
+
+      // Fetch updated verification requests
+      fetchVerificationRequests();
+      
+    } catch (error) {
+      setUploadResult({
+        success: false,
+        message: error.response?.data?.detail || 'Upload failed'
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const fetchVerificationRequests = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      // This would require a new endpoint to list all verification requests for verifiers
+      // For now, we'll just show a placeholder
+      setVerificationRequests([]);
+    } catch (error) {
+      console.error("Failed to fetch verification requests:", error);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-900">Document Verification</h2>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="verify">Verify Document</TabsTrigger>
+          <TabsTrigger value="history">Verification History</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="verify" className="space-y-4">
+          <DocumentUploadCard onUpload={handleFileUpload} uploading={uploading} result={uploadResult} />
+        </TabsContent>
+
+        <TabsContent value="history" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Verification History</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-500">No verification requests yet.</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
+
+const DocumentUploadCard = ({ onUpload, uploading, result }) => {
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [organization, setOrganization] = useState("");
+  const fileInputRef = useRef(null);
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+      if (!allowedTypes.includes(file.type)) {
+        alert('Please select a PDF or image file (JPEG, PNG)');
+        return;
+      }
+      
+      // Validate file size (10MB max)
+      if (file.size > 10 * 1024 * 1024) {
+        alert('File size must be less than 10MB');
+        return;
+      }
+      
+      setSelectedFile(file);
+    }
+  };
+
+  const handleUpload = () => {
+    if (selectedFile) {
+      onUpload(selectedFile, organization);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+      if (allowedTypes.includes(file.type)) {
+        setSelectedFile(file);
+      } else {
+        alert('Please select a PDF or image file (JPEG, PNG)');
+      }
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center">
+          <Shield className="w-5 h-5 mr-2" />
+          Upload Certificate for Verification
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="organization">Organization/Purpose (Optional)</Label>
+          <Input
+            id="organization"
+            value={organization}
+            onChange={(e) => setOrganization(e.target.value)}
+            placeholder="e.g., XYZ Company - Job Application"
+          />
+        </div>
+
+        <div
+          className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-gray-400 transition-colors"
+          onClick={() => fileInputRef.current?.click()}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          
+          <div className="space-y-2">
+            <div className="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">
+                {selectedFile ? selectedFile.name : "Click to upload or drag and drop"}
+              </p>
+              <p className="text-xs text-gray-500">
+                PDF, PNG, JPG up to 10MB
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {selectedFile && (
+          <div className="bg-gray-50 p-3 rounded">
+            <p className="text-sm font-medium">Selected: {selectedFile.name}</p>
+            <p className="text-xs text-gray-500">
+              Size: {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+            </p>
+          </div>
+        )}
+
+        <Button
+          onClick={handleUpload}
+          disabled={!selectedFile || uploading}
+          className="w-full"
+        >
+          {uploading ? "Processing..." : "Upload & Verify"}
+        </Button>
+
+        {result && (
+          <Alert className={result.success ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
+            <AlertDescription className={result.success ? "text-green-800" : "text-red-800"}>
+              {result.message}
+              {result.verificationId && (
+                <div className="mt-2">
+                  <code className="bg-gray-100 px-2 py-1 rounded text-xs">
+                    ID: {result.verificationId}
+                  </code>
+                </div>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+const InstitutionAdminDashboard = ({ user }) => {
+  const [activeTab, setActiveTab] = useState("certificates");
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-900">Institution Management</h2>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="certificates">Manage Certificates</TabsTrigger>
+          <TabsTrigger value="upload">Upload CSV</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="certificates" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Certificate Database</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-500">Certificate management features coming soon.</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="upload" className="space-y-4">
+          <CertificateUploadCard user={user} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
+
+const CertificateUploadCard = ({ user }) => {
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [result, setResult] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file && file.name.endsWith('.csv')) {
+      setSelectedFile(file);
+    } else {
+      alert('Please select a CSV file');
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile || !user.institution_id) return;
+
+    setUploading(true);
+    setResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      const token = localStorage.getItem("token");
+      const response = await axios.post(
+        `${API}/institutions/${user.institution_id}/certificates/upload`,
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
+
+      setResult({
+        success: true,
+        message: response.data.message,
+        certificates_added: response.data.certificates_added,
+        errors: response.data.errors
+      });
+      
+    } catch (error) {
+      setResult({
+        success: false,
+        message: error.response?.data?.detail || 'Upload failed'
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Upload Certificates (CSV)</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="bg-blue-50 border border-blue-200 rounded p-4">
+          <h4 className="font-medium text-blue-900 mb-2">CSV Format Requirements:</h4>
+          <p className="text-sm text-blue-800 mb-2">Required columns:</p>
+          <ul className="text-xs text-blue-700 list-disc list-inside">
+            <li>certificate_id</li>
+            <li>student_name</li>
+            <li>roll_number</li>
+            <li>course_name</li>
+            <li>passing_year</li>
+          </ul>
+          <p className="text-xs text-blue-700 mt-2">
+            Optional: father_name, registration_number, course_type, grade, percentage, cgpa, issued_date
+          </p>
+        </div>
+
+        <div
+          className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-gray-400 transition-colors"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          
+          <div className="space-y-2">
+            <div className="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">
+                {selectedFile ? selectedFile.name : "Click to upload CSV file"}
+              </p>
+              <p className="text-xs text-gray-500">
+                CSV files only
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {selectedFile && (
+          <div className="bg-gray-50 p-3 rounded">
+            <p className="text-sm font-medium">Selected: {selectedFile.name}</p>
+          </div>
+        )}
+
+        <Button
+          onClick={handleUpload}
+          disabled={!selectedFile || uploading}
+          className="w-full"
+        >
+          {uploading ? "Uploading..." : "Upload Certificates"}
+        </Button>
+
+        {result && (
+          <Alert className={result.success ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
+            <AlertDescription className={result.success ? "text-green-800" : "text-red-800"}>
+              {result.message}
+              {result.certificates_added && (
+                <div className="mt-2 text-sm">
+                  Certificates added: {result.certificates_added}
+                </div>
+              )}
+              {result.errors && result.errors.length > 0 && (
+                <div className="mt-2">
+                  <details className="text-sm">
+                    <summary>Errors ({result.errors.length})</summary>
+                    <ul className="mt-1 list-disc list-inside text-xs">
+                      {result.errors.slice(0, 10).map((error, index) => (
+                        <li key={index}>{error}</li>
+                      ))}
+                    </ul>
+                  </details>
+                </div>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+const SystemAdminDashboard = ({ user }) => {
+  const [activeTab, setActiveTab] = useState("institutions");
+  const [institutions, setInstitutions] = useState([]);
+  const [newInstitution, setNewInstitution] = useState({
+    name: "",
+    code: "",
+    type: "university",
+    state: "",
+    city: "",
+    established_year: new Date().getFullYear(),
+    contact_email: "",
+    contact_phone: "",
+    website: ""
+  });
+
+  const fetchInstitutions = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get(`${API}/institutions`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setInstitutions(response.data.institutions);
+    } catch (error) {
+      console.error("Failed to fetch institutions:", error);
+    }
+  };
+
+  const createInstitution = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.post(`${API}/institutions`, newInstitution, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // Reset form and refresh list
+      setNewInstitution({
+        name: "",
+        code: "",
+        type: "university",
+        state: "",
+        city: "",
+        established_year: new Date().getFullYear(),
+        contact_email: "",
+        contact_phone: "",
+        website: ""
+      });
+      
+      fetchInstitutions();
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Failed to create institution');
+    }
+  };
+
+  useEffect(() => {
+    fetchInstitutions();
+  }, []);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-900">System Administration</h2>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="institutions">Institutions</TabsTrigger>
+          <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="institutions" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Add New Institution</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="name">Institution Name</Label>
+                    <Input
+                      id="name"
+                      value={newInstitution.name}
+                      onChange={(e) => setNewInstitution({...newInstitution, name: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="code">Institution Code</Label>
+                    <Input
+                      id="code"
+                      value={newInstitution.code}
+                      onChange={(e) => setNewInstitution({...newInstitution, code: e.target.value})}
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="type">Type</Label>
+                    <Select 
+                      value={newInstitution.type} 
+                      onValueChange={(value) => setNewInstitution({...newInstitution, type: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="university">University</SelectItem>
+                        <SelectItem value="college">College</SelectItem>
+                        <SelectItem value="institute">Institute</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="established_year">Established Year</Label>
+                    <Input
+                      id="established_year"
+                      type="number"
+                      value={newInstitution.established_year}
+                      onChange={(e) => setNewInstitution({...newInstitution, established_year: parseInt(e.target.value)})}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="state">State</Label>
+                    <Input
+                      id="state"
+                      value={newInstitution.state}
+                      onChange={(e) => setNewInstitution({...newInstitution, state: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="city">City</Label>
+                    <Input
+                      id="city"
+                      value={newInstitution.city}
+                      onChange={(e) => setNewInstitution({...newInstitution, city: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="contact_email">Contact Email</Label>
+                  <Input
+                    id="contact_email"
+                    type="email"
+                    value={newInstitution.contact_email}
+                    onChange={(e) => setNewInstitution({...newInstitution, contact_email: e.target.value})}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="contact_phone">Contact Phone</Label>
+                  <Input
+                    id="contact_phone"
+                    value={newInstitution.contact_phone}
+                    onChange={(e) => setNewInstitution({...newInstitution, contact_phone: e.target.value})}
+                  />
+                </div>
+
+                <Button onClick={createInstitution} className="w-full">
+                  Create Institution
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Registered Institutions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {institutions.map((institution) => (
+                    <div key={institution.id} className="border rounded p-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className="font-medium">{institution.name}</h4>
+                          <p className="text-sm text-gray-500">
+                            {institution.code} • {institution.type}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {institution.city}, {institution.state}
+                          </p>
+                        </div>
+                        <Badge variant={institution.is_verified ? "default" : "secondary"}>
+                          {institution.is_verified ? "Verified" : "Pending"}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="users" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>User Management</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-500">User management features coming soon.</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="reports" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Verification Reports</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-500">Reporting features coming soon.</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
+
 export default App;
