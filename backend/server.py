@@ -1379,6 +1379,431 @@ async def get_emergency_alert(alert_id: str, current_user: User = Depends(get_cu
     
     return EmergencyAlert(**alert)
 
+# Certificate Verification Endpoints
+@api_router.post("/certificates/upload")
+async def upload_certificate(
+    file: UploadFile = File(...),
+    requester_organization: str = Form(None),
+    current_user: User = Depends(get_current_user)
+):
+    """Upload and process certificate for verification"""
+    try:
+        # Validate file type
+        allowed_types = ['pdf', 'jpg', 'jpeg', 'png', 'tiff', 'bmp']
+        file_type = file.filename.split('.')[-1].lower()
+        
+        if file_type not in allowed_types:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File type '{file_type}' not supported. Allowed types: {', '.join(allowed_types)}"
+            )
+        
+        # Create uploads directory if it doesn't exist
+        uploads_dir = Path("/app/uploads")
+        uploads_dir.mkdir(exist_ok=True)
+        
+        # Generate unique filename
+        file_id = str(uuid.uuid4())
+        file_path = uploads_dir / f"{file_id}.{file_type}"
+        
+        # Save uploaded file
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        file_size = file_path.stat().st_size
+        
+        # Create verification request
+        verification_request = VerificationRequest(
+            requester_id=current_user.id,
+            requester_name=current_user.full_name,
+            requester_organization=requester_organization,
+            file_path=str(file_path),
+            file_type=file_type,
+            file_size=file_size,
+            verification_status="processing"
+        )
+        
+        # Insert into database
+        result = await db.verification_requests.insert_one(verification_request.dict())
+        verification_request.id = str(result.inserted_id)
+        
+        # Process document asynchronously
+        try:
+            analysis = await process_document(str(file_path), file_type)
+            
+            # Update verification request with OCR results
+            update_data = {
+                "ocr_text": analysis.text_extracted,
+                "extracted_data": analysis.detected_fields,
+                "anomalies_detected": analysis.anomalies,
+                "confidence_score": analysis.confidence_score,
+                "verification_status": "processed",
+                "processed_at": datetime.now(timezone.utc)
+            }
+            
+            await db.verification_requests.update_one(
+                {"_id": result.inserted_id},
+                {"$set": update_data}
+            )
+            
+        except Exception as e:
+            logger.error(f"Document processing failed: {str(e)}")
+            await db.verification_requests.update_one(
+                {"_id": result.inserted_id},
+                {"$set": {
+                    "verification_status": "failed",
+                    "verification_notes": f"Processing error: {str(e)}",
+                    "processed_at": datetime.now(timezone.utc)
+                }}
+            )
+        
+        return {
+            "message": "File uploaded and processing initiated",
+            "verification_id": verification_request.id,
+            "status": "processing"
+        }
+        
+    except Exception as e:
+        logger.error(f"Upload failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+@api_router.get("/certificates/verify/{verification_id}")
+async def get_verification_status(
+    verification_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Get verification status and results"""
+    try:
+        # Find verification request
+        verification = await db.verification_requests.find_one({"id": verification_id})
+        
+        if not verification:
+            raise HTTPException(status_code=404, detail="Verification request not found")
+        
+        # Check if user has access (requester or admin roles)
+        if (verification["requester_id"] != current_user.id and 
+            current_user.role not in ["system_admin", "verifier"]):
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Attempt certificate matching if processed
+        if verification["verification_status"] == "processed":
+            try:
+                match_result = await match_certificate(verification["extracted_data"])
+                
+                # Update verification with match results
+                update_data = {
+                    "verification_status": "verified" if match_result["is_authentic"] else "rejected",
+                    "matched_certificate_id": match_result.get("certificate_id"),
+                    "verification_notes": match_result.get("notes", "")
+                }
+                
+                await db.verification_requests.update_one(
+                    {"id": verification_id},
+                    {"$set": update_data}
+                )
+                
+                verification.update(update_data)
+                
+            except Exception as e:
+                logger.error(f"Certificate matching failed: {str(e)}")
+        
+        return {
+            "verification_id": verification_id,
+            "status": verification["verification_status"],
+            "confidence_score": verification.get("confidence_score"),
+            "extracted_data": verification.get("extracted_data", {}),
+            "anomalies": verification.get("anomalies_detected", []),
+            "matched_certificate": verification.get("matched_certificate_id"),
+            "notes": verification.get("verification_notes", ""),
+            "created_at": verification["created_at"],
+            "processed_at": verification.get("processed_at")
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get verification failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Verification lookup failed: {str(e)}")
+
+@api_router.post("/institutions")
+async def create_institution(
+    institution: InstitutionCreate,
+    current_user: User = Depends(get_current_user)
+):
+    """Create a new institution (system_admin only)"""
+    if current_user.role != "system_admin":
+        raise HTTPException(status_code=403, detail="Only system administrators can create institutions")
+    
+    try:
+        # Check if institution code already exists
+        existing = await db.institutions.find_one({"code": institution.code})
+        if existing:
+            raise HTTPException(status_code=400, detail="Institution code already exists")
+        
+        # Generate verification hash
+        institution_data = institution.dict()
+        verification_hash = generate_certificate_hash(institution_data)
+        
+        new_institution = Institution(
+            **institution_data,
+            verification_hash=verification_hash
+        )
+        
+        result = await db.institutions.insert_one(new_institution.dict())
+        new_institution.id = str(result.inserted_id)
+        
+        return {
+            "message": "Institution created successfully",
+            "institution_id": new_institution.id,
+            "verification_hash": verification_hash
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Institution creation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Institution creation failed: {str(e)}")
+
+@api_router.get("/institutions")
+async def list_institutions(
+    current_user: User = Depends(get_current_user)
+):
+    """List all institutions"""
+    try:
+        institutions = []
+        async for institution in db.institutions.find({}):
+            institutions.append({
+                "id": institution["id"],
+                "name": institution["name"],
+                "code": institution["code"],
+                "type": institution["type"],
+                "state": institution["state"],
+                "city": institution["city"],
+                "is_verified": institution["is_verified"]
+            })
+        
+        return {"institutions": institutions}
+        
+    except Exception as e:
+        logger.error(f"Institution listing failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Institution listing failed: {str(e)}")
+
+@api_router.post("/institutions/{institution_id}/certificates/upload")
+async def upload_certificates_csv(
+    institution_id: str,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    """Upload certificates in CSV format (institution_admin or system_admin only)"""
+    if current_user.role not in ["institution_admin", "system_admin"]:
+        raise HTTPException(status_code=403, detail="Only institution admins can upload certificates")
+    
+    # For institution_admin, check if they belong to this institution
+    if current_user.role == "institution_admin" and current_user.institution_id != institution_id:
+        raise HTTPException(status_code=403, detail="Access denied to this institution")
+    
+    try:
+        # Validate file type
+        if not file.filename.endswith('.csv'):
+            raise HTTPException(status_code=400, detail="Only CSV files are allowed")
+        
+        # Read CSV file
+        content = await file.read()
+        csv_content = content.decode('utf-8')
+        
+        # Parse CSV
+        csv_reader = csv.DictReader(io.StringIO(csv_content))
+        certificates_added = 0
+        errors = []
+        
+        for row_num, row in enumerate(csv_reader, start=2):
+            try:
+                # Validate required fields
+                required_fields = ['certificate_id', 'student_name', 'roll_number', 'course_name', 'passing_year']
+                missing_fields = [field for field in required_fields if not row.get(field)]
+                
+                if missing_fields:
+                    errors.append(f"Row {row_num}: Missing fields: {', '.join(missing_fields)}")
+                    continue
+                
+                # Get institution info
+                institution = await db.institutions.find_one({"id": institution_id})
+                if not institution:
+                    raise HTTPException(status_code=404, detail="Institution not found")
+                
+                # Create certificate
+                certificate_data = {
+                    "certificate_id": row["certificate_id"],
+                    "student_name": row["student_name"],
+                    "father_name": row.get("father_name", ""),
+                    "roll_number": row["roll_number"],
+                    "registration_number": row.get("registration_number", ""),
+                    "course_name": row["course_name"],
+                    "course_type": row.get("course_type", "degree"),
+                    "course_duration": row.get("course_duration", ""),
+                    "passing_year": int(row["passing_year"]),
+                    "grade": row.get("grade", ""),
+                    "percentage": float(row["percentage"]) if row.get("percentage") else None,
+                    "cgpa": float(row["cgpa"]) if row.get("cgpa") else None,
+                    "institution_id": institution_id,
+                    "institution_name": institution["name"],
+                    "issued_date": datetime.strptime(row.get("issued_date", f"{row['passing_year']}-06-01"), "%Y-%m-%d") if row.get("issued_date") else datetime(int(row["passing_year"]), 6, 1),
+                    "metadata": {key: value for key, value in row.items() if key not in required_fields}
+                }
+                
+                # Generate certificate hash
+                certificate_data["certificate_hash"] = generate_certificate_hash(certificate_data)
+                
+                certificate = Certificate(**certificate_data)
+                
+                # Check for duplicates
+                existing = await db.certificates.find_one({
+                    "certificate_id": certificate.certificate_id,
+                    "institution_id": institution_id
+                })
+                
+                if existing:
+                    errors.append(f"Row {row_num}: Certificate ID {certificate.certificate_id} already exists")
+                    continue
+                
+                # Insert certificate
+                await db.certificates.insert_one(certificate.dict())
+                certificates_added += 1
+                
+            except Exception as e:
+                errors.append(f"Row {row_num}: {str(e)}")
+        
+        return {
+            "message": f"CSV processing completed",
+            "certificates_added": certificates_added,
+            "errors": errors[:50]  # Limit errors to first 50
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"CSV upload failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"CSV upload failed: {str(e)}")
+
+async def match_certificate(extracted_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Match extracted certificate data against database"""
+    try:
+        # Build query based on available fields
+        query_conditions = []
+        
+        if "name" in extracted_data:
+            query_conditions.append({"student_name": {"$regex": extracted_data["name"], "$options": "i"}})
+        
+        if "roll_number" in extracted_data:
+            query_conditions.append({"roll_number": extracted_data["roll_number"]})
+        
+        if "course" in extracted_data:
+            query_conditions.append({"course_name": {"$regex": extracted_data["course"], "$options": "i"}})
+        
+        if "year" in extracted_data:
+            try:
+                year = int(extracted_data["year"])
+                query_conditions.append({"passing_year": year})
+            except ValueError:
+                pass
+        
+        if not query_conditions:
+            return {
+                "is_authentic": False,
+                "certificate_id": None,
+                "notes": "Insufficient data for matching"
+            }
+        
+        # Search for matching certificates
+        query = {"$and": query_conditions} if len(query_conditions) > 1 else query_conditions[0]
+        
+        certificates = []
+        async for cert in db.certificates.find(query).limit(10):
+            certificates.append(cert)
+        
+        if not certificates:
+            return {
+                "is_authentic": False,
+                "certificate_id": None,
+                "notes": "No matching certificate found in database"
+            }
+        
+        # Calculate similarity scores for each certificate
+        best_match = None
+        best_score = 0
+        
+        for cert in certificates:
+            score = calculate_similarity_score(extracted_data, cert)
+            if score > best_score:
+                best_score = score
+                best_match = cert
+        
+        # Threshold for considering a match authentic
+        threshold = 0.7
+        
+        if best_score >= threshold:
+            return {
+                "is_authentic": True,
+                "certificate_id": best_match["id"],
+                "similarity_score": best_score,
+                "notes": f"Match found with {best_score:.2f} similarity"
+            }
+        else:
+            return {
+                "is_authentic": False,
+                "certificate_id": None,
+                "similarity_score": best_score,
+                "notes": f"Low similarity score: {best_score:.2f} (threshold: {threshold})"
+            }
+        
+    except Exception as e:
+        logger.error(f"Certificate matching failed: {str(e)}")
+        return {
+            "is_authentic": False,
+            "certificate_id": None,
+            "notes": f"Matching error: {str(e)}"
+        }
+
+def calculate_similarity_score(extracted_data: Dict[str, Any], certificate: Dict[str, Any]) -> float:
+    """Calculate similarity score between extracted data and certificate"""
+    scores = []
+    
+    # Name similarity
+    if "name" in extracted_data and certificate.get("student_name"):
+        name_similarity = textdistance.jaro_winkler(
+            extracted_data["name"].lower(),
+            certificate["student_name"].lower()
+        )
+        scores.append(name_similarity * 0.3)  # 30% weight
+    
+    # Roll number exact match
+    if "roll_number" in extracted_data and certificate.get("roll_number"):
+        if extracted_data["roll_number"].lower() == certificate["roll_number"].lower():
+            scores.append(0.25)  # 25% weight
+    
+    # Course similarity
+    if "course" in extracted_data and certificate.get("course_name"):
+        course_similarity = textdistance.jaro_winkler(
+            extracted_data["course"].lower(),
+            certificate["course_name"].lower()
+        )
+        scores.append(course_similarity * 0.2)  # 20% weight
+    
+    # Year exact match
+    if "year" in extracted_data and certificate.get("passing_year"):
+        try:
+            if int(extracted_data["year"]) == certificate["passing_year"]:
+                scores.append(0.15)  # 15% weight
+        except ValueError:
+            pass
+    
+    # Grade similarity
+    if "grade" in extracted_data and certificate.get("grade"):
+        if extracted_data["grade"].lower() == certificate["grade"].lower():
+            scores.append(0.1)  # 10% weight
+    
+    return sum(scores) if scores else 0
+
 # Add CORS middleware BEFORE including router
 cors_origins_str = os.environ.get('CORS_ORIGINS', '*')
 raw_origins = [origin.strip() for origin in cors_origins_str.split(',')]
