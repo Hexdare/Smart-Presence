@@ -162,10 +162,11 @@ class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     username: str
     password_hash: str
-    role: str  # "teacher", "student", or "principal"
+    role: str  # "teacher", "student", "principal", "verifier", "institution_admin", "system_admin"
     student_id: Optional[str] = None
     class_section: Optional[str] = None  # "A5" or "A6" for students
     subjects: Optional[List[str]] = None  # List of subjects for teachers
+    institution_id: Optional[str] = None  # For institution_admin role
     full_name: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
