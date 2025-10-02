@@ -1432,62 +1432,7 @@ async def get_emergency_alert(alert_id: str, current_user: User = Depends(get_cu
     
     return EmergencyAlert(**alert)
 
-# Debug endpoint to check system_admin.json file accessibility
-@api_router.get("/debug/system-admin-file")
-async def debug_system_admin_file():
-    """Debug endpoint to check if system_admin.json file is accessible"""
-    try:
-        import json
-        from pathlib import Path
-        
-        # Try multiple paths for system_admin.json for deployment compatibility
-        possible_paths = [
-            Path(__file__).parent / "system_admin.json",  # Relative to server.py
-            Path("/app/backend/system_admin.json"),       # Original hardcoded path
-            Path("/app/system_admin.json"),               # Root level fallback
-            Path("system_admin.json"),                    # Current directory
-            Path("backend/system_admin.json")             # Relative backend dir
-        ]
-        
-        results = []
-        admin_file = None
-        
-        for path in possible_paths:
-            path_info = {
-                "path": str(path),
-                "exists": path.exists(),
-                "is_file": path.is_file() if path.exists() else False,
-                "readable": False,
-                "content": None
-            }
-            
-            if path.exists() and path.is_file():
-                try:
-                    with open(path, 'r') as f:
-                        content = json.load(f)
-                        path_info["readable"] = True
-                        path_info["content"] = content
-                        if not admin_file:
-                            admin_file = path
-                except Exception as e:
-                    path_info["error"] = str(e)
-            
-            results.append(path_info)
-        
-        return {
-            "working_directory": str(Path.cwd()),
-            "server_file_location": str(Path(__file__).parent),
-            "paths_checked": results,
-            "admin_file_found": str(admin_file) if admin_file else None,
-            "admin_data_available": admin_file is not None
-        }
-        
-    except Exception as e:
-        return {
-            "error": str(e),
-            "working_directory": str(Path.cwd()),
-            "server_file_location": str(Path(__file__).parent)
-        }
+# System admin authentication now uses environment variables for better production deployment compatibility
 
 # Certificate Verification Endpoints
 @api_router.post("/certificates/upload")
