@@ -855,8 +855,12 @@ async def login_user(user_credentials: UserLogin):
                     # Create access token for system admin
                     access_token = create_access_token(data={"sub": user_credentials.username})
                     return {"access_token": access_token, "token_type": "bearer"}
+        else:
+            logger.error("system_admin.json file not found in any expected locations")
     except Exception as e:
         logger.error(f"System admin login check failed: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
     
     # Check regular users in database
     user = await db.users.find_one({"username": user_credentials.username})
