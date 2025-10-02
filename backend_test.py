@@ -2501,5 +2501,15 @@ class BackendTester:
 
 if __name__ == "__main__":
     tester = BackendTester()
-    success = tester.run_all_tests()
+    
+    # Check if we should run production admin tests specifically
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "admin":
+        print("Running focused production admin login tests...")
+        success = tester.run_production_admin_tests()
+    else:
+        print("Running all backend tests...")
+        success = tester.run_all_tests()
+    
+    sys.exit(0 if success else 1)
     sys.exit(0 if success else 1)
