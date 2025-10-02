@@ -2354,6 +2354,60 @@ class BackendTester:
         
         return all_passed
 
+    def run_production_admin_tests(self):
+        """Run focused tests for production admin login issue"""
+        print(f"\n{'='*60}")
+        print("PRODUCTION ADMIN LOGIN TESTING")
+        print("Focus: Verifying admin/admin123 login on production backend")
+        print(f"{'='*60}")
+        print(f"Backend URL: {self.base_url}")
+        print(f"Test started at: {datetime.now().isoformat()}")
+        
+        # Run focused tests for production admin login
+        tests = [
+            self.test_production_backend_accessibility,
+            self.test_system_admin_file_check,
+            self.test_production_admin_login_detailed,
+            self.test_admin_login,  # Original admin login test
+        ]
+        
+        passed = 0
+        total = len(tests)
+        
+        for test in tests:
+            try:
+                if test():
+                    passed += 1
+            except Exception as e:
+                print(f"Test {test.__name__} crashed: {e}")
+        
+        # Summary
+        print(f"\n{'='*60}")
+        print("PRODUCTION ADMIN LOGIN TEST SUMMARY")
+        print(f"{'='*60}")
+        print(f"Total Tests: {total}")
+        print(f"Passed: {passed}")
+        print(f"Failed: {total - passed}")
+        print(f"Success Rate: {(passed/total)*100:.1f}%")
+        
+        # Show failed tests
+        failed_tests = [r for r in self.test_results if not r['success']]
+        if failed_tests:
+            print(f"\n❌ FAILED TESTS:")
+            for test in failed_tests:
+                print(f"  - {test['test']}: {test['message']}")
+                if test.get('details'):
+                    print(f"    Details: {test['details']}")
+        
+        # Show successful tests
+        successful_tests = [r for r in self.test_results if r['success']]
+        if successful_tests:
+            print(f"\n✅ SUCCESSFUL TESTS:")
+            for test in successful_tests:
+                print(f"  - {test['test']}: {test['message']}")
+        
+        return passed == total
+
     def run_all_tests(self):
         """Run all backend tests"""
         print(f"\n{'='*60}")
