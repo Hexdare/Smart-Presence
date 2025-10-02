@@ -278,7 +278,7 @@ class BackendTester:
             
             headers = {
                 'Content-Type': 'application/json',
-                'Origin': 'https://code-pi-rust.vercel.app'
+                'Origin': 'https://smart-presence-sacs.vercel.app'
             }
             
             response = self.session.post(f"{self.base_url}/auth/login", 
@@ -294,7 +294,7 @@ class BackendTester:
                     # Test admin user info endpoint
                     admin_headers = {
                         'Authorization': f'Bearer {result["access_token"]}',
-                        'Origin': 'https://code-pi-rust.vercel.app'
+                        'Origin': 'https://smart-presence-sacs.vercel.app'
                     }
                     
                     me_response = self.session.get(f"{self.base_url}/auth/me", headers=admin_headers)
@@ -334,6 +334,170 @@ class BackendTester:
                 
         except Exception as e:
             self.log_result("Admin Login", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_production_backend_accessibility(self):
+        """Test if production backend is accessible and responding"""
+        print("\n=== Testing Production Backend Accessibility ===")
+        
+        try:
+            # Test basic connectivity to production backend
+            response = self.session.get(f"{self.base_url.replace('/api', '')}/docs")
+            
+            if response.status_code == 200:
+                self.log_result("Production Backend Accessibility", True, 
+                              "Production backend is accessible", 
+                              f"FastAPI docs endpoint responding")
+            elif response.status_code == 404:
+                # Try the root endpoint
+                response = self.session.get(f"{self.base_url.replace('/api', '')}/")
+                if response.status_code in [200, 404]:
+                    self.log_result("Production Backend Accessibility", True, 
+                                  "Production backend is accessible", 
+                                  f"Root endpoint responding with {response.status_code}")
+                else:
+                    self.log_result("Production Backend Accessibility", False, 
+                                  f"Production backend not accessible: {response.status_code}", 
+                                  f"Response: {response.text}")
+                    return False
+            else:
+                self.log_result("Production Backend Accessibility", False, 
+                              f"Production backend not accessible: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+            return True
+                
+        except Exception as e:
+            self.log_result("Production Backend Accessibility", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_production_admin_login_detailed(self):
+        """Detailed test of production admin login with comprehensive debugging"""
+        print("\n=== Testing Production Admin Login (Detailed) ===")
+        
+        try:
+            # Test with exact production frontend origin
+            admin_login_data = {
+                "username": "admin",
+                "password": "admin123"
+            }
+            
+            headers = {
+                'Content-Type': 'application/json',
+                'Origin': 'https://smart-presence-sacs.vercel.app',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+            
+            print(f"Testing login at: {self.base_url}/auth/login")
+            print(f"With credentials: {admin_login_data}")
+            print(f"With headers: {headers}")
+            
+            response = self.session.post(f"{self.base_url}/auth/login", 
+                                       json=admin_login_data, headers=headers)
+            
+            print(f"Response status: {response.status_code}")
+            print(f"Response headers: {dict(response.headers)}")
+            print(f"Response body: {response.text}")
+            
+            if response.status_code == 200:
+                result = response.json()
+                if 'access_token' in result and 'token_type' in result:
+                    self.log_result("Production Admin Login", True, 
+                                  "Production admin login successful", 
+                                  f"Token received: {result['token_type']}")
+                    
+                    # Test /auth/me endpoint
+                    admin_headers = {
+                        'Authorization': f'Bearer {result["access_token"]}',
+                        'Origin': 'https://smart-presence-sacs.vercel.app'
+                    }
+                    
+                    me_response = self.session.get(f"{self.base_url}/auth/me", headers=admin_headers)
+                    
+                    if me_response.status_code == 200:
+                        user_info = me_response.json()
+                        self.log_result("Production Admin User Info", True, 
+                                      "Admin user info retrieved successfully", 
+                                      f"User info: {user_info}")
+                        return True
+                    else:
+                        self.log_result("Production Admin User Info", False, 
+                                      f"Failed to get user info: {me_response.status_code}", 
+                                      f"Response: {me_response.text}")
+                        return False
+                else:
+                    self.log_result("Production Admin Login", False, 
+                                  "Login response missing token fields", 
+                                  f"Response: {result}")
+                    return False
+            elif response.status_code == 401:
+                self.log_result("Production Admin Login", False, 
+                              "CRITICAL: Admin login failed with 401 - credentials rejected", 
+                              f"Response: {response.text}")
+                return False
+            elif response.status_code == 404:
+                self.log_result("Production Admin Login", False, 
+                              "CRITICAL: Login endpoint not found (404) - routing issue", 
+                              f"Response: {response.text}")
+                return False
+            elif response.status_code == 405:
+                self.log_result("Production Admin Login", False, 
+                              "CRITICAL: Method not allowed (405) - deployment routing issue", 
+                              f"Response: {response.text}")
+                return False
+            elif response.status_code >= 500:
+                self.log_result("Production Admin Login", False, 
+                              f"CRITICAL: Server error ({response.status_code}) - backend deployment issue", 
+                              f"Response: {response.text}")
+                return False
+            else:
+                self.log_result("Production Admin Login", False, 
+                              f"Unexpected status code: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Production Admin Login", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_system_admin_file_check(self):
+        """Test if system_admin.json file exists and is accessible"""
+        print("\n=== Testing System Admin File Accessibility ===")
+        
+        try:
+            # Check if system_admin.json exists locally (for comparison)
+            import json
+            from pathlib import Path
+            
+            admin_file = Path("/app/backend/system_admin.json")
+            if admin_file.exists():
+                with open(admin_file, 'r') as f:
+                    admin_data = json.load(f)
+                    system_admin = admin_data.get("system_admin")
+                    
+                    if system_admin:
+                        self.log_result("Local System Admin File", True, 
+                                      "system_admin.json exists locally", 
+                                      f"Admin data: username={system_admin.get('username')}, role={system_admin.get('role')}")
+                    else:
+                        self.log_result("Local System Admin File", False, 
+                                      "system_admin.json exists but missing system_admin key", 
+                                      f"File content: {admin_data}")
+                        return False
+            else:
+                self.log_result("Local System Admin File", False, 
+                              "system_admin.json file not found locally")
+                return False
+            
+            # Test if production backend can access the file by attempting login
+            # (This is indirect - we can't directly check file existence on production)
+            self.log_result("Production System Admin File", True, 
+                          "Cannot directly check file on production, but login test will verify")
+            return True
+                
+        except Exception as e:
+            self.log_result("System Admin File Check", False, f"File check failed: {str(e)}")
             return False
 
     def test_login(self):
