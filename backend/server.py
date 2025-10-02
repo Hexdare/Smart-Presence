@@ -827,7 +827,8 @@ async def login_user(user_credentials: UserLogin):
         import json
         from pathlib import Path
         
-        admin_file = Path("/app/backend/system_admin.json")
+        # Use dynamic path relative to this file for production compatibility
+        admin_file = Path(__file__).parent / "system_admin.json"
         if admin_file.exists():
             with open(admin_file, 'r') as f:
                 admin_data = json.load(f)
