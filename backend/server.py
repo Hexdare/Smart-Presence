@@ -827,9 +827,23 @@ async def login_user(user_credentials: UserLogin):
         import json
         from pathlib import Path
         
-        # Use dynamic path relative to this file for production compatibility
-        admin_file = Path(__file__).parent / "system_admin.json"
-        if admin_file.exists():
+        # Try multiple paths for system_admin.json for deployment compatibility
+        possible_paths = [
+            Path(__file__).parent / "system_admin.json",  # Relative to server.py
+            Path("/app/backend/system_admin.json"),       # Original hardcoded path
+            Path("/app/system_admin.json"),               # Root level fallback
+            Path("system_admin.json"),                    # Current directory
+            Path("backend/system_admin.json")             # Relative backend dir
+        ]
+        
+        admin_file = None
+        for path in possible_paths:
+            if path.exists():
+                admin_file = path
+                logger.info(f"Found system_admin.json at: {path}")
+                break
+        
+        if admin_file:
             with open(admin_file, 'r') as f:
                 admin_data = json.load(f)
                 system_admin = admin_data.get("system_admin")
