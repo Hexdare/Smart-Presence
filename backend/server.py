@@ -701,43 +701,23 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     except jwt.PyJWTError:
         raise credentials_exception
     
-    # First check if it's system admin
+    # First check if it's system admin using environment variables
     try:
-        import json
-        from pathlib import Path
+        import os
         
-        # Try multiple paths for system_admin.json for deployment compatibility
-        possible_paths = [
-            Path(__file__).parent / "system_admin.json",  # Relative to server.py
-            Path("/app/backend/system_admin.json"),       # Original hardcoded path
-            Path("/app/system_admin.json"),               # Root level fallback
-            Path("system_admin.json"),                    # Current directory
-            Path("backend/system_admin.json")             # Relative backend dir
-        ]
+        # Get system admin credentials from environment variables
+        system_admin_username = os.environ.get("SYSTEM_ADMIN_USERNAME")
+        system_admin_full_name = os.environ.get("SYSTEM_ADMIN_FULL_NAME", "System Administrator")
         
-        admin_file = None
-        for path in possible_paths:
-            if path.exists():
-                admin_file = path
-                logger.info(f"Found system_admin.json at: {path}")
-                break
-        
-        if admin_file:
-            with open(admin_file, 'r') as f:
-                admin_data = json.load(f)
-                system_admin = admin_data.get("system_admin")
-                
-                if system_admin and system_admin["username"] == username:
-                    # Return system admin user object
-                    return User(
-                        id=str(uuid.uuid4()),
-                        username=system_admin["username"],
-                        password_hash="",  # Not needed for auth check
-                        role=system_admin["role"],
-                        full_name=system_admin["full_name"]
-                    )
-        else:
-            logger.error("system_admin.json file not found in any expected locations")
+        if system_admin_username and system_admin_username == username:
+            # Return system admin user object
+            return User(
+                id=str(uuid.uuid4()),
+                username=system_admin_username,
+                password_hash="",  # Not needed for auth check
+                role="system_admin",
+                full_name=system_admin_full_name
+            )
     except Exception as e:
         logger.error(f"System admin user check failed: {str(e)}")
     
