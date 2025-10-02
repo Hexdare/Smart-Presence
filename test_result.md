@@ -222,15 +222,18 @@ backend:
 
   - task: "System Admin Login Authentication"
     implemented: true
-    working: true
+    working: false
     file: "backend/server.py, backend/system_admin.json"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
     needs_retesting: false
     status_history:
       - working: true
         agent: "testing"
         comment: "COMPREHENSIVE ADMIN LOGIN TESTING COMPLETE: System admin login functionality tested and verified working perfectly. 1) Admin login with credentials admin/admin123 returns 200 OK with valid JWT token, 2) system_admin.json file exists with correct credentials (username: admin, password: admin123, role: system_admin), 3) Backend login endpoint properly checks system_admin.json file first before database users as designed, 4) Admin user info retrieval works correctly via /api/auth/me endpoint, 5) All authentication flows working as expected. The reported user issue of 'Incorrect username or password' with admin/admin123 is NOT reproducible - admin login is fully functional and working correctly."
+      - working: false
+        agent: "testing"
+        comment: "CRITICAL PRODUCTION DEPLOYMENT ISSUE IDENTIFIED: Admin login with admin/admin123 credentials FAILS on production backend (https://smart-attendance-system-ur85.onrender.com) with 401 'Incorrect username or password' error. Root cause analysis reveals: 1) Production backend is accessible and working for regular operations (user registration successful), 2) system_admin.json file exists locally with correct credentials, 3) The issue is that system_admin.json file is NOT accessible on Render production deployment - hardcoded path '/app/backend/system_admin.json' doesn't work in production environment, 4) Backend code uses Path('/app/backend/system_admin.json') which works locally but fails on Render's deployment structure, 5) This is a common Render deployment issue where file paths differ between local and production environments. SOLUTION REQUIRED: Update backend code to use dynamic file path resolution or environment variables for system_admin.json location."
 
 frontend:
   - task: "In-app QR Camera Scanner Implementation"
