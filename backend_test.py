@@ -2202,6 +2202,7 @@ class BackendTester:
         # Run tests in order
         tests = [
             # System Admin Tests (PRIORITY - as requested)
+            self.test_admin_login,  # NEW: Test specific admin login issue
             self.test_system_admin_json_file_exists,
             self.test_system_admin_login,
             self.test_system_admin_user_retrieval,
