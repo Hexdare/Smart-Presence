@@ -1434,18 +1434,6 @@ async def get_emergency_alert(alert_id: str, current_user: User = Depends(get_cu
 
 # System admin authentication now uses environment variables for better production deployment compatibility
 
-# Debug endpoint to check environment variables (temporary for testing)
-@api_router.get("/debug/env-vars")
-async def debug_env_vars():
-    """Debug endpoint to check environment variables"""
-    import os
-    return {
-        "system_admin_username_exists": bool(os.environ.get("SYSTEM_ADMIN_USERNAME")),
-        "system_admin_password_exists": bool(os.environ.get("SYSTEM_ADMIN_PASSWORD")),
-        "system_admin_username_value": os.environ.get("SYSTEM_ADMIN_USERNAME", "NOT_SET"),
-        "all_env_vars": list(os.environ.keys())
-    }
-
 # Certificate Verification Endpoints
 @api_router.post("/certificates/upload")
 async def upload_certificate(
