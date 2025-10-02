@@ -706,8 +706,23 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         import json
         from pathlib import Path
         
-        admin_file = Path("/app/backend/system_admin.json")
-        if admin_file.exists():
+        # Try multiple paths for system_admin.json for deployment compatibility
+        possible_paths = [
+            Path(__file__).parent / "system_admin.json",  # Relative to server.py
+            Path("/app/backend/system_admin.json"),       # Original hardcoded path
+            Path("/app/system_admin.json"),               # Root level fallback
+            Path("system_admin.json"),                    # Current directory
+            Path("backend/system_admin.json")             # Relative backend dir
+        ]
+        
+        admin_file = None
+        for path in possible_paths:
+            if path.exists():
+                admin_file = path
+                logger.info(f"Found system_admin.json at: {path}")
+                break
+        
+        if admin_file:
             with open(admin_file, 'r') as f:
                 admin_data = json.load(f)
                 system_admin = admin_data.get("system_admin")
@@ -721,6 +736,8 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
                         role=system_admin["role"],
                         full_name=system_admin["full_name"]
                     )
+        else:
+            logger.error("system_admin.json file not found in any expected locations")
     except Exception as e:
         logger.error(f"System admin user check failed: {str(e)}")
     
