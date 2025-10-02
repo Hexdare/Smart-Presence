@@ -819,41 +819,22 @@ async def register_user(user_data: UserCreate):
 
 @api_router.post("/auth/login", response_model=Token)
 async def login_user(user_credentials: UserLogin):
-    # First check if it's system admin login
+    # First check if it's system admin login using environment variables
     try:
-        import json
-        from pathlib import Path
+        import os
         
-        # Try multiple paths for system_admin.json for deployment compatibility
-        possible_paths = [
-            Path(__file__).parent / "system_admin.json",  # Relative to server.py
-            Path("/app/backend/system_admin.json"),       # Original hardcoded path
-            Path("/app/system_admin.json"),               # Root level fallback
-            Path("system_admin.json"),                    # Current directory
-            Path("backend/system_admin.json")             # Relative backend dir
-        ]
+        # Get system admin credentials from environment variables
+        system_admin_username = os.environ.get("SYSTEM_ADMIN_USERNAME")
+        system_admin_password = os.environ.get("SYSTEM_ADMIN_PASSWORD")
         
-        admin_file = None
-        for path in possible_paths:
-            if path.exists():
-                admin_file = path
-                logger.info(f"Found system_admin.json at: {path}")
-                break
-        
-        if admin_file:
-            with open(admin_file, 'r') as f:
-                admin_data = json.load(f)
-                system_admin = admin_data.get("system_admin")
-                
-                if (system_admin and 
-                    system_admin["username"] == user_credentials.username and
-                    system_admin["password"] == user_credentials.password):
-                    
-                    # Create access token for system admin
-                    access_token = create_access_token(data={"sub": user_credentials.username})
-                    return {"access_token": access_token, "token_type": "bearer"}
-        else:
-            logger.error("system_admin.json file not found in any expected locations")
+        if (system_admin_username and system_admin_password and 
+            system_admin_username == user_credentials.username and
+            system_admin_password == user_credentials.password):
+            
+            logger.info("System admin login successful")
+            # Create access token for system admin
+            access_token = create_access_token(data={"sub": user_credentials.username})
+            return {"access_token": access_token, "token_type": "bearer"}
     except Exception as e:
         logger.error(f"System admin login check failed: {str(e)}")
         import traceback
