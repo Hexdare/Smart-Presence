@@ -265,6 +265,77 @@ class BackendTester:
             self.log_result("Teacher Registration", False, f"Request failed: {str(e)}")
             return False
     
+    def test_admin_login(self):
+        """Test system admin login with credentials from system_admin.json"""
+        print("\n=== Testing System Admin Login ===")
+        
+        try:
+            # Test admin login with exact credentials from system_admin.json
+            admin_login_data = {
+                "username": "admin",
+                "password": "admin123"
+            }
+            
+            headers = {
+                'Content-Type': 'application/json',
+                'Origin': 'https://code-pi-rust.vercel.app'
+            }
+            
+            response = self.session.post(f"{self.base_url}/auth/login", 
+                                       json=admin_login_data, headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if 'access_token' in result and 'token_type' in result:
+                    self.log_result("Admin Login", True, 
+                                  "System admin login successful", 
+                                  f"Token type: {result['token_type']}")
+                    
+                    # Test admin user info endpoint
+                    admin_headers = {
+                        'Authorization': f'Bearer {result["access_token"]}',
+                        'Origin': 'https://code-pi-rust.vercel.app'
+                    }
+                    
+                    me_response = self.session.get(f"{self.base_url}/auth/me", headers=admin_headers)
+                    
+                    if me_response.status_code == 200:
+                        user_info = me_response.json()
+                        if user_info.get('role') == 'system_admin' and user_info.get('username') == 'admin':
+                            self.log_result("Admin User Info", True, 
+                                          "Admin user info correct", 
+                                          f"Role: {user_info.get('role')}, Username: {user_info.get('username')}")
+                            return True
+                        else:
+                            self.log_result("Admin User Info", False, 
+                                          "Admin user info incorrect", 
+                                          f"Expected role: system_admin, username: admin. Got: {user_info}")
+                            return False
+                    else:
+                        self.log_result("Admin User Info", False, 
+                                      f"Failed to get admin user info: {me_response.status_code}", 
+                                      f"Response: {me_response.text}")
+                        return False
+                else:
+                    self.log_result("Admin Login", False, 
+                                  "Admin login response missing token fields", 
+                                  f"Response: {result}")
+                    return False
+            elif response.status_code == 401:
+                self.log_result("Admin Login", False, 
+                              "Admin login failed - incorrect credentials or system_admin.json issue", 
+                              f"Response: {response.text}")
+                return False
+            else:
+                self.log_result("Admin Login", False, 
+                              f"Unexpected status code: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Admin Login", False, f"Request failed: {str(e)}")
+            return False
+
     def test_login(self):
         """Test login endpoint and get auth token"""
         print("\n=== Testing Login ===")
