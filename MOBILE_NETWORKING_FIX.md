@@ -9,12 +9,12 @@ This is a common issue when converting web apps to mobile. Here are the fixes:
 ## 🔍 **Diagnosis Steps**
 
 ### **1. Check Your Backend URL**
-Current backend URL in `.env`: `https://edu-manager-24.preview.emergentagent.com`
+Current backend URL in `.env`: `https://smart-attendance-44.preview.emergentagent.com`
 
 **Test the backend URL:**
 ```bash
 # Test if backend is accessible
-curl https://edu-manager-24.preview.emergentagent.com/api/auth/me
+curl https://smart-attendance-44.preview.emergentagent.com/api/auth/me
 ```
 
 ---
@@ -236,7 +236,7 @@ npx cap sync android
 ### **Step 2: Test Backend Connectivity**
 ```bash
 # Test if your backend is working
-curl -X POST https://edu-manager-24.preview.emergentagent.com/api/auth/login \
+curl -X POST https://smart-attendance-44.preview.emergentagent.com/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"test","password":"test"}'
 ```
