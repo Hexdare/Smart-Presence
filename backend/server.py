@@ -1816,7 +1816,7 @@ async def upload_certificates_csv(
                 errors.append(f"Row {row_num}: {str(e)}")
         
         return {
-            "message": f"CSV processing completed",
+            "message": "CSV processing completed",
             "certificates_added": certificates_added,
             "errors": errors[:50]  # Limit errors to first 50
         }
