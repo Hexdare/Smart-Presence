@@ -246,6 +246,42 @@ backend:
         agent: "testing"
         comment: "ENVIRONMENT VARIABLE AUTHENTICATION IMPLEMENTATION VERIFIED: Main agent successfully implemented environment variable-based system admin authentication. COMPREHENSIVE TESTING RESULTS: ✅ LOCAL BACKEND: Admin login with admin/admin123 credentials works perfectly (200 OK + valid JWT token), ✅ ENVIRONMENT VARIABLES: SYSTEM_ADMIN_USERNAME, SYSTEM_ADMIN_PASSWORD, SYSTEM_ADMIN_FULL_NAME properly configured in backend/.env, ✅ USER INFO RETRIEVAL: /api/auth/me endpoint returns correct system_admin role and user details, ✅ AUTHENTICATION FLOW: Backend now checks environment variables FIRST before falling back to database users, ✅ PRODUCTION READY: No file system dependencies - uses only environment variables. ❌ PRODUCTION DEPLOYMENT: Current production deployment still uses old code without environment variable support (returns 401). SOLUTION COMPLETE: The updated code with environment variable authentication is working perfectly locally and is production-ready for Render deployment. Production deployment needs to be updated with the new code and environment variables configured on Render platform."
 
+  - task: "User Update API Endpoint"
+    implemented: true
+    working: "unknown"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "unknown"
+        agent: "main"
+        comment: "Implemented PUT /api/admin/users/{user_id} endpoint for system admin to update user data: 1) Added UserUpdate model with optional fields for username, password, full_name, role, and role-specific fields, 2) Prevents updating system_admin users (403 error), 3) Validates username uniqueness when changing, 4) Hashes password if provided, 5) Validates role changes and role-specific fields (student_id, class_section, subjects, institution_id), 6) Returns updated fields list on success. Ready for backend testing."
+
+  - task: "User Delete API Endpoint"
+    implemented: true
+    working: "unknown"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "unknown"
+        agent: "main"
+        comment: "Implemented DELETE /api/admin/users/{user_id} endpoint for system admin to delete users: 1) Prevents deleting system_admin users (403 error), 2) Returns deleted user info on success, 3) Proper error handling for user not found. Ready for backend testing."
+
+  - task: "Filter System Admin from User List"
+    implemented: true
+    working: "unknown"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "unknown"
+        agent: "main"
+        comment: "Updated GET /api/admin/users endpoint to filter out system_admin users from the list: 1) Uses MongoDB query filter {role: {$ne: 'system_admin'}} to exclude system admins, 2) Prevents system admin users from being shown in the UI. Ready for backend testing."
+
 frontend:
   - task: "In-app QR Camera Scanner Implementation"
     implemented: true
