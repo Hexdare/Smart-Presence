@@ -377,11 +377,12 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Certificate Verification Models and OCR Setup"
-    - "Certificate Upload and Processing API"
-    - "Institution Management API"
-    - "Certificate Verification Dashboard Components"
-    - "Updated User Registration for New Roles"
+    - "User Update API Endpoint"
+    - "User Delete API Endpoint"
+    - "Filter System Admin from User List"
+    - "User Management Panel - Categorization by Role"
+    - "User Management Panel - Edit User Functionality"
+    - "User Management Panel - Delete User Functionality"
   stuck_tasks:
     - task: "Fix Vercel deployment routing configuration"
       implemented: true
