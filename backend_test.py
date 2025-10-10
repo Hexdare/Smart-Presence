@@ -3181,7 +3181,20 @@ class BackendTester:
         """Test that non-admin users cannot access user list (403 error)"""
         print("\n=== Testing Non-Admin Users List Access (Should Fail) ===")
         
-        student_token = self.get_auth_token_for_role("student")
+        # Use one of our created test users
+        student_login_data = {
+            "username": "student_mgmt_test1",
+            "password": "testpass123"
+        }
+        
+        headers = {'Content-Type': 'application/json'}
+        response = self.session.post(f"{self.base_url}/auth/login", json=student_login_data, headers=headers)
+        
+        if response.status_code != 200:
+            self.log_result("Non-Admin Users List Forbidden", False, "Could not get student auth token")
+            return False
+        
+        student_token = response.json().get('access_token')
         if not student_token:
             self.log_result("Non-Admin Users List Forbidden", False, "Could not get student auth token")
             return False
