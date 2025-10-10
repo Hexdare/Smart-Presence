@@ -3045,6 +3045,625 @@ class BackendTester:
             self.log_result("System Admin Authentication", False, f"Request failed: {str(e)}")
             return False
 
+    def get_admin_token(self):
+        """Get admin authentication token"""
+        try:
+            admin_login_data = {
+                "username": "admin",
+                "password": "admin123"
+            }
+            
+            headers = {'Content-Type': 'application/json'}
+            response = self.session.post(f"{self.base_url}/auth/login", json=admin_login_data, headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result.get('access_token')
+            return None
+        except Exception:
+            return None
+
+    def create_test_users_for_management(self):
+        """Create test users for user management testing"""
+        admin_token = self.get_admin_token()
+        if not admin_token:
+            return False
+        
+        headers = {
+            'Authorization': f'Bearer {admin_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        test_users = [
+            {
+                "username": "student_mgmt_test1",
+                "password": "testpass123",
+                "role": "student",
+                "student_id": "STU_MGMT_001",
+                "class_section": "A5",
+                "full_name": "Student Management Test 1"
+            },
+            {
+                "username": "student_mgmt_test2", 
+                "password": "testpass123",
+                "role": "student",
+                "student_id": "STU_MGMT_002",
+                "class_section": "A6",
+                "full_name": "Student Management Test 2"
+            },
+            {
+                "username": "teacher_mgmt_test1",
+                "password": "testpass123",
+                "role": "teacher",
+                "subjects": ["Mathematics", "Physics"],
+                "full_name": "Teacher Management Test 1"
+            },
+            {
+                "username": "principal_mgmt_test1",
+                "password": "testpass123",
+                "role": "principal",
+                "subjects": ["Administration"],
+                "full_name": "Principal Management Test 1"
+            },
+            {
+                "username": "verifier_mgmt_test1",
+                "password": "testpass123",
+                "role": "verifier",
+                "full_name": "Verifier Management Test 1"
+            }
+        ]
+        
+        created_users = []
+        for user_data in test_users:
+            try:
+                response = self.session.post(f"{self.base_url}/admin/users/create", 
+                                           json=user_data, headers=headers)
+                if response.status_code == 200:
+                    result = response.json()
+                    created_users.append({
+                        'user_id': result['user_id'],
+                        'username': user_data['username'],
+                        'role': user_data['role']
+                    })
+                elif response.status_code == 400 and "already registered" in response.text:
+                    # User already exists, that's fine
+                    pass
+            except Exception as e:
+                print(f"Failed to create test user {user_data['username']}: {e}")
+        
+        return len(created_users) > 0
+
+    def test_admin_users_list_system_admin_filter(self):
+        """Test GET /api/admin/users - List Users with System Admin Filter"""
+        print("\n=== Testing Admin Users List with System Admin Filter ===")
+        
+        admin_token = self.get_admin_token()
+        if not admin_token:
+            self.log_result("Admin Users List", False, "Could not get admin auth token")
+            return False
+        
+        try:
+            headers = {'Authorization': f'Bearer {admin_token}'}
+            response = self.session.get(f"{self.base_url}/admin/users", headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                users = result.get('users', [])
+                
+                # Check that no system_admin users are in the response
+                system_admin_users = [user for user in users if user.get('role') == 'system_admin']
+                
+                if len(system_admin_users) == 0:
+                    # Check that other roles are present
+                    roles_present = set(user.get('role') for user in users)
+                    expected_roles = {'student', 'teacher', 'principal', 'verifier', 'institution_admin'}
+                    roles_found = roles_present.intersection(expected_roles)
+                    
+                    self.log_result("Admin Users List - System Admin Filter", True, 
+                                  f"System admin users correctly filtered out. Found {len(users)} users with roles: {roles_found}")
+                    return True
+                else:
+                    self.log_result("Admin Users List - System Admin Filter", False, 
+                                  f"Found {len(system_admin_users)} system_admin users in response", 
+                                  f"System admin users: {system_admin_users}")
+                    return False
+            else:
+                self.log_result("Admin Users List", False, 
+                              f"Users list failed: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Admin Users List", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_admin_users_list_non_admin_forbidden(self):
+        """Test that non-admin users cannot access user list (403 error)"""
+        print("\n=== Testing Non-Admin Users List Access (Should Fail) ===")
+        
+        student_token = self.get_auth_token_for_role("student")
+        if not student_token:
+            self.log_result("Non-Admin Users List Forbidden", False, "Could not get student auth token")
+            return False
+        
+        try:
+            headers = {'Authorization': f'Bearer {student_token}'}
+            response = self.session.get(f"{self.base_url}/admin/users", headers=headers)
+            
+            if response.status_code == 403:
+                self.log_result("Non-Admin Users List Forbidden", True, 
+                              "Non-admin users correctly forbidden from accessing user list")
+                return True
+            else:
+                self.log_result("Non-Admin Users List Forbidden", False, 
+                              f"Expected 403, got {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Non-Admin Users List Forbidden", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_admin_update_user_comprehensive(self):
+        """Test PUT /api/admin/users/{user_id} - Update User comprehensively"""
+        print("\n=== Testing Admin Update User Comprehensive ===")
+        
+        admin_token = self.get_admin_token()
+        if not admin_token:
+            self.log_result("Admin Update User", False, "Could not get admin auth token")
+            return False
+        
+        headers = {
+            'Authorization': f'Bearer {admin_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        # First get a user to update
+        try:
+            response = self.session.get(f"{self.base_url}/admin/users", headers=headers)
+            if response.status_code != 200:
+                self.log_result("Admin Update User", False, "Could not get users list")
+                return False
+            
+            users = response.json().get('users', [])
+            student_user = next((user for user in users if user['role'] == 'student'), None)
+            teacher_user = next((user for user in users if user['role'] == 'teacher'), None)
+            
+            if not student_user:
+                self.log_result("Admin Update User", False, "No student user found for testing")
+                return False
+            
+            all_passed = True
+            
+            # Test 1: Update student's username (verify uniqueness check)
+            try:
+                update_data = {"username": f"updated_student_{datetime.now().microsecond}"}
+                response = self.session.put(f"{self.base_url}/admin/users/{student_user['id']}", 
+                                          json=update_data, headers=headers)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if 'username' in result.get('updated_fields', []):
+                        self.log_result("Update Student Username", True, 
+                                      "Successfully updated student username")
+                    else:
+                        self.log_result("Update Student Username", False, 
+                                      "Username not in updated fields", f"Response: {result}")
+                        all_passed = False
+                else:
+                    self.log_result("Update Student Username", False, 
+                                  f"Username update failed: {response.status_code}", 
+                                  f"Response: {response.text}")
+                    all_passed = False
+            except Exception as e:
+                self.log_result("Update Student Username", False, f"Request failed: {str(e)}")
+                all_passed = False
+            
+            # Test 2: Update student's password (verify it gets hashed)
+            try:
+                update_data = {"password": "newpassword123"}
+                response = self.session.put(f"{self.base_url}/admin/users/{student_user['id']}", 
+                                          json=update_data, headers=headers)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if 'password_hash' in result.get('updated_fields', []):
+                        self.log_result("Update Student Password", True, 
+                                      "Successfully updated student password (hashed)")
+                    else:
+                        self.log_result("Update Student Password", False, 
+                                      "Password hash not in updated fields", f"Response: {result}")
+                        all_passed = False
+                else:
+                    self.log_result("Update Student Password", False, 
+                                  f"Password update failed: {response.status_code}", 
+                                  f"Response: {response.text}")
+                    all_passed = False
+            except Exception as e:
+                self.log_result("Update Student Password", False, f"Request failed: {str(e)}")
+                all_passed = False
+            
+            # Test 3: Update student's full_name
+            try:
+                update_data = {"full_name": "Updated Student Name"}
+                response = self.session.put(f"{self.base_url}/admin/users/{student_user['id']}", 
+                                          json=update_data, headers=headers)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if 'full_name' in result.get('updated_fields', []):
+                        self.log_result("Update Student Full Name", True, 
+                                      "Successfully updated student full name")
+                    else:
+                        self.log_result("Update Student Full Name", False, 
+                                      "Full name not in updated fields", f"Response: {result}")
+                        all_passed = False
+                else:
+                    self.log_result("Update Student Full Name", False, 
+                                  f"Full name update failed: {response.status_code}", 
+                                  f"Response: {response.text}")
+                    all_passed = False
+            except Exception as e:
+                self.log_result("Update Student Full Name", False, f"Request failed: {str(e)}")
+                all_passed = False
+            
+            # Test 4: Update student's class_section (A5 to A6 or vice versa)
+            try:
+                current_section = student_user.get('class_section', 'A5')
+                new_section = 'A6' if current_section == 'A5' else 'A5'
+                update_data = {"class_section": new_section}
+                
+                response = self.session.put(f"{self.base_url}/admin/users/{student_user['id']}", 
+                                          json=update_data, headers=headers)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if 'class_section' in result.get('updated_fields', []):
+                        self.log_result("Update Student Class Section", True, 
+                                      f"Successfully updated class section from {current_section} to {new_section}")
+                    else:
+                        self.log_result("Update Student Class Section", False, 
+                                      "Class section not in updated fields", f"Response: {result}")
+                        all_passed = False
+                else:
+                    self.log_result("Update Student Class Section", False, 
+                                  f"Class section update failed: {response.status_code}", 
+                                  f"Response: {response.text}")
+                    all_passed = False
+            except Exception as e:
+                self.log_result("Update Student Class Section", False, f"Request failed: {str(e)}")
+                all_passed = False
+            
+            # Test 5: Update teacher's subjects array (if teacher user exists)
+            if teacher_user:
+                try:
+                    update_data = {"subjects": ["Updated Mathematics", "Updated Physics", "Chemistry"]}
+                    response = self.session.put(f"{self.base_url}/admin/users/{teacher_user['id']}", 
+                                              json=update_data, headers=headers)
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        if 'subjects' in result.get('updated_fields', []):
+                            self.log_result("Update Teacher Subjects", True, 
+                                          "Successfully updated teacher subjects")
+                        else:
+                            self.log_result("Update Teacher Subjects", False, 
+                                          "Subjects not in updated fields", f"Response: {result}")
+                            all_passed = False
+                    else:
+                        self.log_result("Update Teacher Subjects", False, 
+                                      f"Subjects update failed: {response.status_code}", 
+                                      f"Response: {response.text}")
+                        all_passed = False
+                except Exception as e:
+                    self.log_result("Update Teacher Subjects", False, f"Request failed: {str(e)}")
+                    all_passed = False
+            
+            # Test 6: Try to update non-existent user (should return 404)
+            try:
+                fake_user_id = "non_existent_user_id_12345"
+                update_data = {"full_name": "Should Not Work"}
+                response = self.session.put(f"{self.base_url}/admin/users/{fake_user_id}", 
+                                          json=update_data, headers=headers)
+                
+                if response.status_code == 404:
+                    self.log_result("Update Non-Existent User", True, 
+                                  "Non-existent user update correctly returned 404")
+                else:
+                    self.log_result("Update Non-Existent User", False, 
+                                  f"Expected 404, got {response.status_code}", 
+                                  f"Response: {response.text}")
+                    all_passed = False
+            except Exception as e:
+                self.log_result("Update Non-Existent User", False, f"Request failed: {str(e)}")
+                all_passed = False
+            
+            # Test 7: Try to update with duplicate username (should return 400)
+            if len(users) >= 2:
+                try:
+                    other_user = next((user for user in users if user['id'] != student_user['id']), None)
+                    if other_user:
+                        update_data = {"username": other_user['username']}
+                        response = self.session.put(f"{self.base_url}/admin/users/{student_user['id']}", 
+                                                  json=update_data, headers=headers)
+                        
+                        if response.status_code == 400:
+                            self.log_result("Update Duplicate Username", True, 
+                                          "Duplicate username correctly rejected with 400")
+                        else:
+                            self.log_result("Update Duplicate Username", False, 
+                                          f"Expected 400, got {response.status_code}", 
+                                          f"Response: {response.text}")
+                            all_passed = False
+                except Exception as e:
+                    self.log_result("Update Duplicate Username", False, f"Request failed: {str(e)}")
+                    all_passed = False
+            
+            # Test 8: Change student's role to teacher (verify role-specific fields change)
+            try:
+                update_data = {
+                    "role": "teacher",
+                    "subjects": ["New Subject 1", "New Subject 2"]
+                }
+                response = self.session.put(f"{self.base_url}/admin/users/{student_user['id']}", 
+                                          json=update_data, headers=headers)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    updated_fields = result.get('updated_fields', [])
+                    if 'role' in updated_fields and 'subjects' in updated_fields:
+                        self.log_result("Update Student Role to Teacher", True, 
+                                      "Successfully changed student role to teacher with subjects")
+                    else:
+                        self.log_result("Update Student Role to Teacher", False, 
+                                      "Role or subjects not in updated fields", f"Response: {result}")
+                        all_passed = False
+                else:
+                    self.log_result("Update Student Role to Teacher", False, 
+                                  f"Role change failed: {response.status_code}", 
+                                  f"Response: {response.text}")
+                    all_passed = False
+            except Exception as e:
+                self.log_result("Update Student Role to Teacher", False, f"Request failed: {str(e)}")
+                all_passed = False
+            
+            return all_passed
+            
+        except Exception as e:
+            self.log_result("Admin Update User", False, f"Test setup failed: {str(e)}")
+            return False
+
+    def test_admin_update_user_non_admin_forbidden(self):
+        """Test that non-admin users cannot update users (403 error)"""
+        print("\n=== Testing Non-Admin User Update (Should Fail) ===")
+        
+        student_token = self.get_auth_token_for_role("student")
+        admin_token = self.get_admin_token()
+        
+        if not student_token or not admin_token:
+            self.log_result("Non-Admin User Update Forbidden", False, "Could not get required auth tokens")
+            return False
+        
+        # Get a user ID to try to update
+        try:
+            admin_headers = {'Authorization': f'Bearer {admin_token}'}
+            response = self.session.get(f"{self.base_url}/admin/users", headers=admin_headers)
+            
+            if response.status_code != 200:
+                self.log_result("Non-Admin User Update Forbidden", False, "Could not get users list")
+                return False
+            
+            users = response.json().get('users', [])
+            if not users:
+                self.log_result("Non-Admin User Update Forbidden", False, "No users found for testing")
+                return False
+            
+            test_user = users[0]
+            
+            # Try to update with student token
+            student_headers = {
+                'Authorization': f'Bearer {student_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            update_data = {"full_name": "Should Not Work"}
+            response = self.session.put(f"{self.base_url}/admin/users/{test_user['id']}", 
+                                      json=update_data, headers=student_headers)
+            
+            if response.status_code == 403:
+                self.log_result("Non-Admin User Update Forbidden", True, 
+                              "Non-admin users correctly forbidden from updating users")
+                return True
+            else:
+                self.log_result("Non-Admin User Update Forbidden", False, 
+                              f"Expected 403, got {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Non-Admin User Update Forbidden", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_admin_delete_user_comprehensive(self):
+        """Test DELETE /api/admin/users/{user_id} - Delete User comprehensively"""
+        print("\n=== Testing Admin Delete User Comprehensive ===")
+        
+        admin_token = self.get_admin_token()
+        if not admin_token:
+            self.log_result("Admin Delete User", False, "Could not get admin auth token")
+            return False
+        
+        headers = {
+            'Authorization': f'Bearer {admin_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        try:
+            # First create a test user to delete
+            test_user_data = {
+                "username": f"delete_test_user_{datetime.now().microsecond}",
+                "password": "testpass123",
+                "role": "student",
+                "student_id": "DEL_TEST_001",
+                "class_section": "A5",
+                "full_name": "Delete Test User"
+            }
+            
+            response = self.session.post(f"{self.base_url}/admin/users/create", 
+                                       json=test_user_data, headers=headers)
+            
+            if response.status_code != 200:
+                self.log_result("Admin Delete User", False, "Could not create test user for deletion")
+                return False
+            
+            created_user = response.json()
+            user_id = created_user['user_id']
+            username = created_user['username']
+            
+            all_passed = True
+            
+            # Test 1: Delete the user successfully
+            try:
+                response = self.session.delete(f"{self.base_url}/admin/users/{user_id}", headers=headers)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if result.get('user_id') == user_id and result.get('username') == username:
+                        self.log_result("Delete User Successfully", True, 
+                                      f"Successfully deleted user {username}")
+                    else:
+                        self.log_result("Delete User Successfully", False, 
+                                      "Delete response missing expected fields", f"Response: {result}")
+                        all_passed = False
+                else:
+                    self.log_result("Delete User Successfully", False, 
+                                  f"User deletion failed: {response.status_code}", 
+                                  f"Response: {response.text}")
+                    all_passed = False
+            except Exception as e:
+                self.log_result("Delete User Successfully", False, f"Request failed: {str(e)}")
+                all_passed = False
+            
+            # Test 2: Verify user is actually removed from database
+            try:
+                response = self.session.get(f"{self.base_url}/admin/users", headers=headers)
+                
+                if response.status_code == 200:
+                    users = response.json().get('users', [])
+                    deleted_user_still_exists = any(user['id'] == user_id for user in users)
+                    
+                    if not deleted_user_still_exists:
+                        self.log_result("Verify User Removed from Database", True, 
+                                      "Deleted user no longer appears in user list")
+                    else:
+                        self.log_result("Verify User Removed from Database", False, 
+                                      "Deleted user still appears in user list")
+                        all_passed = False
+                else:
+                    self.log_result("Verify User Removed from Database", False, 
+                                  f"Could not verify user removal: {response.status_code}")
+                    all_passed = False
+            except Exception as e:
+                self.log_result("Verify User Removed from Database", False, f"Request failed: {str(e)}")
+                all_passed = False
+            
+            # Test 3: Try to delete non-existent user (should return 404)
+            try:
+                fake_user_id = "non_existent_user_id_12345"
+                response = self.session.delete(f"{self.base_url}/admin/users/{fake_user_id}", headers=headers)
+                
+                if response.status_code == 404:
+                    self.log_result("Delete Non-Existent User", True, 
+                                  "Non-existent user deletion correctly returned 404")
+                else:
+                    self.log_result("Delete Non-Existent User", False, 
+                                  f"Expected 404, got {response.status_code}", 
+                                  f"Response: {response.text}")
+                    all_passed = False
+            except Exception as e:
+                self.log_result("Delete Non-Existent User", False, f"Request failed: {str(e)}")
+                all_passed = False
+            
+            return all_passed
+            
+        except Exception as e:
+            self.log_result("Admin Delete User", False, f"Test setup failed: {str(e)}")
+            return False
+
+    def test_admin_delete_user_non_admin_forbidden(self):
+        """Test that non-admin users cannot delete users (403 error)"""
+        print("\n=== Testing Non-Admin User Delete (Should Fail) ===")
+        
+        student_token = self.get_auth_token_for_role("student")
+        admin_token = self.get_admin_token()
+        
+        if not student_token or not admin_token:
+            self.log_result("Non-Admin User Delete Forbidden", False, "Could not get required auth tokens")
+            return False
+        
+        # Get a user ID to try to delete
+        try:
+            admin_headers = {'Authorization': f'Bearer {admin_token}'}
+            response = self.session.get(f"{self.base_url}/admin/users", headers=admin_headers)
+            
+            if response.status_code != 200:
+                self.log_result("Non-Admin User Delete Forbidden", False, "Could not get users list")
+                return False
+            
+            users = response.json().get('users', [])
+            if not users:
+                self.log_result("Non-Admin User Delete Forbidden", False, "No users found for testing")
+                return False
+            
+            test_user = users[0]
+            
+            # Try to delete with student token
+            student_headers = {'Authorization': f'Bearer {student_token}'}
+            response = self.session.delete(f"{self.base_url}/admin/users/{test_user['id']}", 
+                                         headers=student_headers)
+            
+            if response.status_code == 403:
+                self.log_result("Non-Admin User Delete Forbidden", True, 
+                              "Non-admin users correctly forbidden from deleting users")
+                return True
+            else:
+                self.log_result("Non-Admin User Delete Forbidden", False, 
+                              f"Expected 403, got {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Non-Admin User Delete Forbidden", False, f"Request failed: {str(e)}")
+            return False
+
+    def run_user_management_tests_only(self):
+        """Run only the user management tests as requested in the review"""
+        print("=" * 80)
+        print("USER MANAGEMENT ENDPOINTS TESTING")
+        print("Focus: Admin/admin123 authentication and user management endpoints")
+        print("=" * 80)
+        print(f"Backend URL: {self.base_url}")
+        print(f"Test started at: {datetime.now().isoformat()}")
+        
+        # Create test users for management testing
+        print("\n=== Setting up test users ===")
+        self.create_test_users_for_management()
+        
+        # Test user listing with system admin filter
+        self.test_admin_users_list_system_admin_filter()
+        self.test_admin_users_list_non_admin_forbidden()
+        
+        # Test user update functionality
+        self.test_admin_update_user_comprehensive()
+        self.test_admin_update_user_non_admin_forbidden()
+        
+        # Test user delete functionality
+        self.test_admin_delete_user_comprehensive()
+        self.test_admin_delete_user_non_admin_forbidden()
+        
+        # Print summary
+        self.print_test_summary()
+
     def run_all_tests(self):
         """Run all backend tests"""
         print(f"\n{'='*60}")
