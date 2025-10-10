@@ -2474,6 +2474,246 @@ const CertificateUploadCard = ({ user }) => {
   );
 };
 
+const UserManagementPanel = () => {
+  const [users, setUsers] = useState([]);
+  const [showCreateUser, setShowCreateUser] = useState(false);
+  const [newUser, setNewUser] = useState({
+    username: "",
+    password: "",
+    full_name: "",
+    role: "student",
+    student_id: "",
+    class_section: "",
+    subjects: [],
+    institution_id: ""
+  });
+
+  const fetchUsers = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get(`${API}/admin/users`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUsers(response.data.users);
+    } catch (error) {
+      console.error("Failed to fetch users:", error);
+    }
+  };
+
+  const createUser = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.post(`${API}/admin/users/create`, newUser, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // Reset form
+      setNewUser({
+        username: "",
+        password: "",
+        full_name: "",
+        role: "student",
+        student_id: "",
+        class_section: "",
+        subjects: [],
+        institution_id: ""
+      });
+      
+      setShowCreateUser(false);
+      fetchUsers();
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Failed to create user');
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle>Create New User</CardTitle>
+            <Button
+              onClick={() => setShowCreateUser(!showCreateUser)}
+              variant={showCreateUser ? "secondary" : "default"}
+            >
+              {showCreateUser ? "Cancel" : "New User"}
+            </Button>
+          </div>
+        </CardHeader>
+        {showCreateUser && (
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  value={newUser.username}
+                  onChange={(e) => setNewUser({...newUser, username: e.target.value})}
+                />
+              </div>
+              <div>
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={newUser.password}
+                  onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="full_name">Full Name</Label>
+              <Input
+                id="full_name"
+                value={newUser.full_name}
+                onChange={(e) => setNewUser({...newUser, full_name: e.target.value})}
+              />
+            </div>
+            <div>
+              <Label htmlFor="role">Role</Label>
+              <Select value={newUser.role} onValueChange={(value) => setNewUser({...newUser, role: value})}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="student">Student</SelectItem>
+                  <SelectItem value="teacher">Teacher</SelectItem>
+                  <SelectItem value="principal">Principal</SelectItem>
+                  <SelectItem value="verifier">Document Verifier</SelectItem>
+                  <SelectItem value="institution_admin">Institution Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {newUser.role === "student" && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="student_id">Student ID</Label>
+                  <Input
+                    id="student_id"
+                    value={newUser.student_id}
+                    onChange={(e) => setNewUser({...newUser, student_id: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="class_section">Class Section</Label>
+                  <Select value={newUser.class_section} onValueChange={(value) => setNewUser({...newUser, class_section: value})}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="A5">A5</SelectItem>
+                      <SelectItem value="A6">A6</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
+            {(newUser.role === "teacher" || newUser.role === "principal") && (
+              <div>
+                <Label>Subjects</Label>
+                <div className="mt-2 grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+                  {[
+                    "Mathematics", "Physics", "English", "Basic Electrical Engineering",
+                    "Integrated Circuits", "CAD Lab", "Communication Lab", "Physics Lab",
+                    "BEE Lab", "Production and Manufacturing Engineering"
+                  ].map((subject) => (
+                    <div key={subject} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={`create-subject-${subject}`}
+                        checked={newUser.subjects.includes(subject)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setNewUser({...newUser, subjects: [...newUser.subjects, subject]});
+                          } else {
+                            setNewUser({...newUser, subjects: newUser.subjects.filter(s => s !== subject)});
+                          }
+                        }}
+                        className="rounded border-gray-300"
+                      />
+                      <Label htmlFor={`create-subject-${subject}`} className="text-sm font-normal">
+                        {subject}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {newUser.role === "institution_admin" && (
+              <div>
+                <Label htmlFor="institution_id">Institution ID</Label>
+                <Input
+                  id="institution_id"
+                  value={newUser.institution_id}
+                  onChange={(e) => setNewUser({...newUser, institution_id: e.target.value})}
+                  placeholder="Enter institution ID"
+                />
+              </div>
+            )}
+
+            <Button 
+              onClick={createUser} 
+              className="w-full"
+              disabled={!newUser.username || !newUser.password || !newUser.full_name}
+            >
+              Create User
+            </Button>
+          </CardContent>
+        )}
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>All Users ({users.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {users.map((user) => (
+              <div key={user.id} className="border rounded p-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="font-medium">{user.full_name}</h4>
+                    <p className="text-sm text-gray-500">
+                      @{user.username} • {user.role}
+                    </p>
+                    {user.role === "student" && (
+                      <p className="text-sm text-gray-500">
+                        ID: {user.student_id} • Class: {user.class_section}
+                      </p>
+                    )}
+                    {(user.role === "teacher" || user.role === "principal") && user.subjects && user.subjects.length > 0 && (
+                      <p className="text-sm text-gray-500">
+                        Subjects: {user.subjects.slice(0, 2).join(", ")}
+                        {user.subjects.length > 2 && ` +${user.subjects.length - 2} more`}
+                      </p>
+                    )}
+                    {user.role === "institution_admin" && user.institution_id && (
+                      <p className="text-sm text-gray-500">
+                        Institution: {user.institution_id}
+                      </p>
+                    )}
+                  </div>
+                  <Badge variant="outline">{user.role}</Badge>
+                </div>
+              </div>
+            ))}
+            {users.length === 0 && (
+              <p className="text-gray-500 text-center py-4">No users found</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
 const SystemAdminDashboard = ({ user }) => {
   const [activeTab, setActiveTab] = useState("institutions");
   const [institutions, setInstitutions] = useState([]);
