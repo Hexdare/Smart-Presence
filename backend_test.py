@@ -2419,6 +2419,18 @@ class BackendTester:
         
         # Run tests in order
         tests = [
+            # User Management System Tests (NEW - as requested in review)
+            self.test_registration_restriction_teacher,
+            self.test_registration_restriction_student,
+            self.test_registration_restriction_principal,
+            self.test_registration_allowed_verifier,
+            self.test_registration_allowed_institution_admin,
+            self.test_admin_user_creation_system_admin_only,
+            self.test_admin_user_creation_all_roles,
+            self.test_admin_user_creation_validation,
+            self.test_admin_user_listing_system_admin_only,
+            self.test_system_admin_authentication,
+            
             # System Admin Tests (PRIORITY - as requested)
             self.test_admin_login,  # NEW: Test specific admin login issue
             self.test_system_admin_json_file_exists,
