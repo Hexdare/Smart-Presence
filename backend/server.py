@@ -1135,7 +1135,63 @@ async def update_user_profile(
     Requires current password verification
     """
     try:
-        # Verify current password
+        # Special handling for system admin (authenticated via environment variables)
+        if current_user.role == "system_admin":
+            # Verify password against environment variable
+            system_admin_password = os.environ.get("SYSTEM_ADMIN_PASSWORD")
+            if not system_admin_password or profile_data.current_password != system_admin_password:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Current password is incorrect"
+                )
+            
+            # System admin can only update full_name and profile_picture
+            # Username and password changes are not allowed (managed via environment variables)
+            if profile_data.username and profile_data.username != current_user.username:
+                raise HTTPException(
+                    status_code=400,
+                    detail="System admin username cannot be changed (managed via environment variables)"
+                )
+            
+            if profile_data.password:
+                raise HTTPException(
+                    status_code=400,
+                    detail="System admin password cannot be changed here (managed via environment variables)"
+                )
+            
+            # Store/update system admin profile data in database
+            system_admin_profile = await db.system_admin_profile.find_one({"username": current_user.username})
+            
+            update_data = {}
+            if profile_data.full_name:
+                update_data["full_name"] = profile_data.full_name
+            if profile_data.profile_picture is not None:
+                update_data["profile_picture"] = profile_data.profile_picture
+            
+            if update_data:
+                if system_admin_profile:
+                    # Update existing profile
+                    await db.system_admin_profile.update_one(
+                        {"username": current_user.username},
+                        {"$set": update_data}
+                    )
+                else:
+                    # Create new profile entry
+                    update_data["username"] = current_user.username
+                    await db.system_admin_profile.insert_one(update_data)
+            
+            # Return updated system admin user
+            updated_profile = await db.system_admin_profile.find_one({"username": current_user.username})
+            return User(
+                id=current_user.id,
+                username=current_user.username,
+                password_hash="",
+                role="system_admin",
+                full_name=updated_profile.get("full_name") if updated_profile else current_user.full_name,
+                profile_picture=updated_profile.get("profile_picture") if updated_profile else None
+            )
+        
+        # Regular user handling (database users)
         user_in_db = await db.users.find_one({"username": current_user.username})
         if not user_in_db or not verify_password(profile_data.current_password, user_in_db["password_hash"]):
             raise HTTPException(
