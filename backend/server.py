@@ -905,6 +905,35 @@ async def create_user_admin(
         logger.error(f"User creation failed: {str(e)}")
         raise HTTPException(status_code=500, detail="User creation failed")
 
+@api_router.get("/admin/users", response_model=dict)
+async def list_users_admin(
+    current_user: User = Depends(get_current_user)
+):
+    """List all users (system_admin only)"""
+    if current_user.role != "system_admin":
+        raise HTTPException(status_code=403, detail="Only system administrators can view all users")
+    
+    try:
+        users = []
+        async for user in db.users.find({}):
+            users.append({
+                "id": user["id"],
+                "username": user["username"],
+                "role": user["role"],
+                "full_name": user["full_name"],
+                "student_id": user.get("student_id"),
+                "class_section": user.get("class_section"),
+                "subjects": user.get("subjects", []),
+                "institution_id": user.get("institution_id"),
+                "created_at": user["created_at"]
+            })
+        
+        return {"users": users}
+        
+    except Exception as e:
+        logger.error(f"User listing failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="User listing failed")
+
 @api_router.post("/auth/login", response_model=Token)
 async def login_user(user_credentials: UserLogin):
     # First check if it's system admin login using environment variables
