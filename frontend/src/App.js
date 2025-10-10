@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./components/ui/accordion";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./components/ui/alert-dialog";
-import { QrCode, Users, Calendar, LogOut, Camera, CheckCircle, Clock, User, Megaphone, Plus, Edit, Trash2, Eye, AlertTriangle, Menu, Shield, X, ZoomIn, ZoomOut } from "lucide-react";
+import { QrCode, Users, Calendar, LogOut, Camera, CheckCircle, Clock, User, Megaphone, Plus, Edit, Trash2, Eye, AlertTriangle, Menu, Shield, X, ZoomIn, ZoomOut, Upload, Crop } from "lucide-react";
 import QrScanner from 'qr-scanner';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
