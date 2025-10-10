@@ -21,6 +21,7 @@ import asyncio
 import tempfile
 import shutil
 import csv
+import re
 # OCR and document processing imports
 import pytesseract
 import cv2
