@@ -313,24 +313,51 @@ class ProfileTester:
         """Test 5: Profile Update Endpoint - Wrong Current Password"""
         print("\n=== Testing Profile Update - Wrong Current Password ===")
         
-        verifier_token = self.get_auth_token_for_role("verifier")
-        if not verifier_token:
-            self.log_result("Profile Update Wrong Password", False, "Could not get verifier auth token")
-            return False
-        
+        # Create a new test user for wrong password test
         try:
+            test_user_data = {
+                "username": f"wrong_pass_test_{datetime.now().strftime('%H%M%S')}",
+                "password": "correctpass123",
+                "role": "verifier",
+                "full_name": "Wrong Password Test User"
+            }
+            
+            headers = {'Content-Type': 'application/json'}
+            response = self.session.post(f"{self.base_url}/auth/register", 
+                                       json=test_user_data, headers=headers)
+            
+            if response.status_code != 200:
+                self.log_result("Profile Update Wrong Password", False, "Could not create test user")
+                return False
+            
+            # Login to get token
+            login_data = {
+                "username": test_user_data["username"],
+                "password": "correctpass123"
+            }
+            
+            response = self.session.post(f"{self.base_url}/auth/login", 
+                                       json=login_data, headers=headers)
+            
+            if response.status_code != 200:
+                self.log_result("Profile Update Wrong Password", False, "Could not login with test user")
+                return False
+            
+            token = response.json()['access_token']
+            
+            # Try to update with wrong current password
             profile_data = {
                 "username": "should_not_update",
                 "current_password": "wrongpassword123"  # Wrong password
             }
             
-            headers = {
-                'Authorization': f'Bearer {verifier_token}',
+            auth_headers = {
+                'Authorization': f'Bearer {token}',
                 'Content-Type': 'application/json'
             }
             
             response = self.session.put(f"{self.base_url}/auth/profile", 
-                                      json=profile_data, headers=headers)
+                                      json=profile_data, headers=auth_headers)
             
             if response.status_code == 401:
                 result = response.json()
