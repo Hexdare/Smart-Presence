@@ -109,7 +109,12 @@ user_problem_statement: "Build a Fake Degree/Certificate Recognition system alon
 4. Add new user roles: Verifier, Institution Admin, System Admin
 5. Implement hash-based verification with anomaly detection
 6. Create upload interface for certificate verification
-7. Build admin dashboard for institution management"
+7. Build admin dashboard for institution management
+
+NEW REQUIREMENT: Enhance User Management Panel for System Admin:
+1. Categorize users in the list by roles (students, teachers, principals, etc.) using expandable accordion sections
+2. Add delete functionality for users (System Admin only) - system_admin users should not appear in list or be deletable
+3. Add edit functionality for users to modify username, password, full_name, and role-specific fields (System Admin only)"
 
 backend:
   - task: "Fix CORS configuration"
