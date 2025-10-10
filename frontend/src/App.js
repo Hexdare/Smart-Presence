@@ -291,9 +291,6 @@ const Register = ({ setError, error }) => {
                   <SelectValue placeholder="Select your role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="student">Student</SelectItem>
-                  <SelectItem value="teacher">Teacher</SelectItem>
-                  <SelectItem value="principal">Principal</SelectItem>
                   <SelectItem value="verifier">Document Verifier</SelectItem>
                   <SelectItem value="institution_admin">Institution Admin</SelectItem>
                 </SelectContent>
