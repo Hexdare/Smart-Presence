@@ -4238,7 +4238,16 @@ class BackendTester:
             self.test_emergency_alert_status_update_principal,
             self.test_emergency_alert_status_update_teacher_forbidden,
             self.test_emergency_alert_status_validation,
-            self.test_emergency_alert_individual_access
+            self.test_emergency_alert_individual_access,
+            
+            # Profile Update System tests (NEW - as requested in review)
+            self.test_profile_update_username,
+            self.test_profile_update_full_name,
+            self.test_profile_update_password,
+            self.test_profile_update_profile_picture,
+            self.test_profile_update_wrong_password,
+            self.test_profile_update_duplicate_username,
+            self.test_profile_update_multiple_fields
         ]
         
         passed = 0
