@@ -354,6 +354,18 @@ const Register = ({ setError, error }) => {
 };
 
 const Dashboard = ({ user, logout }) => {
+  const [showProfileDialog, setShowProfileDialog] = useState(false);
+  const [userProfile, setUserProfile] = useState(user);
+
+  // Update userProfile when user prop changes
+  useEffect(() => {
+    setUserProfile(user);
+  }, [user]);
+
+  const handleProfileUpdate = (updatedUser) => {
+    setUserProfile(updatedUser);
+  };
+
   return (
     <div className="min-h-screen">
       <nav className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-50">
@@ -362,42 +374,60 @@ const Dashboard = ({ user, logout }) => {
             <div className="flex items-center">
               <Users className="w-8 h-8 text-indigo-600 mr-3" />
               <h1 className="text-xl font-bold text-gray-900">
-                {user.role.includes('verifier') || user.role.includes('institution') || user.role.includes('system') 
-                  ? 'CertifiScan - Document Verification' 
-                  : 'Smart Attendance'}
+                Smart Presence
               </h1>
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">
-                Welcome, {user.full_name} ({user.role})
+                Welcome, {userProfile.full_name} ({userProfile.role})
               </span>
-              <Button 
-                variant="outline" 
-                onClick={logout}
-                data-testid="logout-button"
-                className="flex items-center"
-              >
-                <LogOut className="w-4 h-4 mr-1" />
-                Logout
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={userProfile.profile_picture || ""} alt={userProfile.full_name} />
+                      <AvatarFallback className="bg-indigo-600 text-white">
+                        {userProfile.full_name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={() => setShowProfileDialog(true)}>
+                    <User className="mr-2 h-4 w-4" />
+                    Edit Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={logout}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
       </nav>
 
+      <ProfileEditDialog
+        open={showProfileDialog}
+        onClose={() => setShowProfileDialog(false)}
+        user={userProfile}
+        onProfileUpdate={handleProfileUpdate}
+      />
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {user.role === "teacher" ? (
-          <TeacherDashboard user={user} />
-        ) : user.role === "principal" ? (
-          <PrincipalDashboard user={user} />
-        ) : user.role === "verifier" ? (
-          <VerifierDashboard user={user} />
-        ) : user.role === "institution_admin" ? (
-          <InstitutionAdminDashboard user={user} />
-        ) : user.role === "system_admin" ? (
-          <SystemAdminDashboard user={user} />
+        {userProfile.role === "teacher" ? (
+          <TeacherDashboard user={userProfile} />
+        ) : userProfile.role === "principal" ? (
+          <PrincipalDashboard user={userProfile} />
+        ) : userProfile.role === "verifier" ? (
+          <VerifierDashboard user={userProfile} />
+        ) : userProfile.role === "institution_admin" ? (
+          <InstitutionAdminDashboard user={userProfile} />
+        ) : userProfile.role === "system_admin" ? (
+          <SystemAdminDashboard user={userProfile} />
         ) : (
-          <StudentDashboard user={user} />
+          <StudentDashboard user={userProfile} />
         )}
       </main>
     </div>
