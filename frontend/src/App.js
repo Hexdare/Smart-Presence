@@ -2480,6 +2480,10 @@ const CertificateUploadCard = ({ user }) => {
 const UserManagementPanel = () => {
   const [users, setUsers] = useState([]);
   const [showCreateUser, setShowCreateUser] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [deleteUserId, setDeleteUserId] = useState(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [newUser, setNewUser] = useState({
     username: "",
     password: "",
@@ -2527,6 +2531,93 @@ const UserManagementPanel = () => {
     } catch (error) {
       alert(error.response?.data?.detail || 'Failed to create user');
     }
+  };
+
+  const handleEditUser = (user) => {
+    setEditingUser({
+      id: user.id,
+      username: user.username,
+      password: "",
+      full_name: user.full_name,
+      role: user.role,
+      student_id: user.student_id || "",
+      class_section: user.class_section || "",
+      subjects: user.subjects || [],
+      institution_id: user.institution_id || ""
+    });
+    setShowEditDialog(true);
+  };
+
+  const updateUser = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const updateData = {
+        username: editingUser.username,
+        full_name: editingUser.full_name,
+        role: editingUser.role,
+        student_id: editingUser.student_id,
+        class_section: editingUser.class_section,
+        subjects: editingUser.subjects,
+        institution_id: editingUser.institution_id
+      };
+      
+      // Only include password if it's been changed
+      if (editingUser.password) {
+        updateData.password = editingUser.password;
+      }
+      
+      await axios.put(`${API}/admin/users/${editingUser.id}`, updateData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      setShowEditDialog(false);
+      setEditingUser(null);
+      fetchUsers();
+      alert('User updated successfully');
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Failed to update user');
+    }
+  };
+
+  const confirmDeleteUser = (userId) => {
+    setDeleteUserId(userId);
+    setShowDeleteDialog(true);
+  };
+
+  const deleteUser = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.delete(`${API}/admin/users/${deleteUserId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      setShowDeleteDialog(false);
+      setDeleteUserId(null);
+      fetchUsers();
+      alert('User deleted successfully');
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Failed to delete user');
+    }
+  };
+
+  // Categorize users by role
+  const categorizedUsers = {
+    student: users.filter(u => u.role === 'student'),
+    teacher: users.filter(u => u.role === 'teacher'),
+    principal: users.filter(u => u.role === 'principal'),
+    verifier: users.filter(u => u.role === 'verifier'),
+    institution_admin: users.filter(u => u.role === 'institution_admin')
+  };
+
+  const getRoleLabel = (role) => {
+    const labels = {
+      student: 'Students',
+      teacher: 'Teachers',
+      principal: 'Principals',
+      verifier: 'Document Verifiers',
+      institution_admin: 'Institution Admins'
+    };
+    return labels[role] || role;
   };
 
   useEffect(() => {
