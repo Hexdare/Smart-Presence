@@ -2673,14 +2673,7 @@ const SystemAdminDashboard = ({ user }) => {
         </TabsContent>
 
         <TabsContent value="users" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>User Management</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-500">User management features coming soon.</p>
-            </CardContent>
-          </Card>
+          <UserManagementPanel />
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-4">
