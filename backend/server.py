@@ -209,6 +209,14 @@ class UserUpdate(BaseModel):
     subjects: Optional[List[str]] = None
     institution_id: Optional[str] = None
 
+class ProfileUpdate(BaseModel):
+    username: Optional[str] = None
+    password: Optional[str] = None  # New password
+    full_name: Optional[str] = None
+    profile_picture: Optional[str] = None  # Base64 encoded image
+    current_password: str  # Required to verify user identity
+
+
 class QRSession(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     teacher_id: str
