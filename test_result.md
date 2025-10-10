@@ -412,12 +412,9 @@ metadata:
 
 test_plan:
   current_focus:
-    - "User Update API Endpoint"
-    - "User Delete API Endpoint"
-    - "Filter System Admin from User List"
-    - "User Management Panel - Categorization by Role"
-    - "User Management Panel - Edit User Functionality"
-    - "User Management Panel - Delete User Functionality"
+    - "Profile Picture Support"
+    - "Self-Service Profile Editing"
+    - "Dashboard Title Update"
   stuck_tasks:
     - task: "Fix Vercel deployment routing configuration"
       implemented: true
