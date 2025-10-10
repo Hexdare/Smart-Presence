@@ -353,6 +353,335 @@ const Register = ({ setError, error }) => {
   );
 };
 
+
+// Image Crop Dialog Component
+const ImageCropDialog = ({ open, onClose, imageSrc, onCropComplete }) => {
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+
+  const onCropCompleteHandler = useCallback((croppedArea, croppedAreaPixels) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const createCroppedImage = async () => {
+    try {
+      const croppedImage = await getCroppedImg(imageSrc, croppedAreaPixels);
+      onCropComplete(croppedImage);
+      onClose();
+    } catch (e) {
+      console.error('Error cropping image:', e);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>Crop Profile Picture</DialogTitle>
+          <DialogDescription>
+            Adjust the crop area to select your profile picture (1:1 ratio)
+          </DialogDescription>
+        </DialogHeader>
+        <div className="relative h-[400px] w-full bg-gray-100">
+          <Cropper
+            image={imageSrc}
+            crop={crop}
+            zoom={zoom}
+            aspect={1}
+            onCropChange={setCrop}
+            onZoomChange={setZoom}
+            onCropComplete={onCropCompleteHandler}
+          />
+        </div>
+        <div className="space-y-4">
+          <div className="flex items-center space-x-4">
+            <Label className="w-16">Zoom:</Label>
+            <input
+              type="range"
+              min={1}
+              max={3}
+              step={0.1}
+              value={zoom}
+              onChange={(e) => setZoom(parseFloat(e.target.value))}
+              className="flex-1"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={createCroppedImage}>
+            <Crop className="w-4 h-4 mr-2" />
+            Apply Crop
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// Helper function to create cropped image
+const getCroppedImg = async (imageSrc, pixelCrop) => {
+  const image = await createImage(imageSrc);
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  canvas.width = pixelCrop.width;
+  canvas.height = pixelCrop.height;
+
+  ctx.drawImage(
+    image,
+    pixelCrop.x,
+    pixelCrop.y,
+    pixelCrop.width,
+    pixelCrop.height,
+    0,
+    0,
+    pixelCrop.width,
+    pixelCrop.height
+  );
+
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = () => {
+        resolve(reader.result);
+      };
+    }, 'image/jpeg', 0.95);
+  });
+};
+
+const createImage = (url) =>
+  new Promise((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener('load', () => resolve(image));
+    image.addEventListener('error', (error) => reject(error));
+    image.src = url;
+  });
+
+// Profile Edit Dialog Component
+const ProfileEditDialog = ({ open, onClose, user, onProfileUpdate }) => {
+  const [formData, setFormData] = useState({
+    username: user.username,
+    full_name: user.full_name,
+    password: '',
+    current_password: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [profilePicture, setProfilePicture] = useState(user.profile_picture || '');
+  const [showCropDialog, setShowCropDialog] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState(null);
+  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    if (open) {
+      setFormData({
+        username: user.username,
+        full_name: user.full_name,
+        password: '',
+        current_password: ''
+      });
+      setProfilePicture(user.profile_picture || '');
+      setError('');
+      setSuccess('');
+    }
+  }, [open, user]);
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Image size should be less than 5MB');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImageToCrop(reader.result);
+        setShowCropDialog(true);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCropComplete = (croppedImage) => {
+    setProfilePicture(croppedImage);
+    setShowCropDialog(false);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (!formData.current_password) {
+      setError('Current password is required to update profile');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const updateData = {
+        current_password: formData.current_password
+      };
+
+      // Only include fields that have changed
+      if (formData.username !== user.username) {
+        updateData.username = formData.username;
+      }
+      if (formData.full_name !== user.full_name) {
+        updateData.full_name = formData.full_name;
+      }
+      if (formData.password) {
+        updateData.password = formData.password;
+      }
+      if (profilePicture !== user.profile_picture) {
+        updateData.profile_picture = profilePicture;
+      }
+
+      const response = await axios.put(`${API}/auth/profile`, updateData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      setSuccess('Profile updated successfully!');
+      onProfileUpdate(response.data);
+      
+      setTimeout(() => {
+        onClose();
+      }, 1500);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to update profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getInitials = (name) => {
+    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  };
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Profile</DialogTitle>
+            <DialogDescription>
+              Update your profile information. You must enter your current password to save changes.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Profile Picture Section */}
+            <div className="flex flex-col items-center space-y-4">
+              <Avatar className="h-24 w-24">
+                <AvatarImage src={profilePicture || ""} alt={formData.full_name} />
+                <AvatarFallback className="bg-indigo-600 text-white text-2xl">
+                  {getInitials(formData.full_name)}
+                </AvatarFallback>
+              </Avatar>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Upload Picture
+              </Button>
+            </div>
+
+            {/* Form Fields */}
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  type="text"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="full_name">Full Name</Label>
+                <Input
+                  id="full_name"
+                  type="text"
+                  value={formData.full_name}
+                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="password">New Password (optional)</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder="Leave blank to keep current password"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="current_password">Current Password *</Label>
+                <Input
+                  id="current_password"
+                  type="password"
+                  value={formData.current_password}
+                  onChange={(e) => setFormData({ ...formData, current_password: e.target.value })}
+                  placeholder="Required to save changes"
+                  required
+                />
+              </div>
+            </div>
+
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {success && (
+              <Alert className="border-green-500 text-green-700">
+                <AlertDescription>{success}</AlertDescription>
+              </Alert>
+            )}
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <ImageCropDialog
+        open={showCropDialog}
+        onClose={() => setShowCropDialog(false)}
+        imageSrc={imageToCrop}
+        onCropComplete={handleCropComplete}
+      />
+    </>
+  );
+};
+
+
 const Dashboard = ({ user, logout }) => {
   const [showProfileDialog, setShowProfileDialog] = useState(false);
   const [userProfile, setUserProfile] = useState(user);
