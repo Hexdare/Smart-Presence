@@ -2768,42 +2768,227 @@ const UserManagementPanel = () => {
           <CardTitle>All Users ({users.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {users.map((user) => (
-              <div key={user.id} className="border rounded p-3">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="font-medium">{user.full_name}</h4>
-                    <p className="text-sm text-gray-500">
-                      @{user.username} • {user.role}
-                    </p>
-                    {user.role === "student" && (
-                      <p className="text-sm text-gray-500">
-                        ID: {user.student_id} • Class: {user.class_section}
-                      </p>
-                    )}
-                    {(user.role === "teacher" || user.role === "principal") && user.subjects && user.subjects.length > 0 && (
-                      <p className="text-sm text-gray-500">
-                        Subjects: {user.subjects.slice(0, 2).join(", ")}
-                        {user.subjects.length > 2 && ` +${user.subjects.length - 2} more`}
-                      </p>
-                    )}
-                    {user.role === "institution_admin" && user.institution_id && (
-                      <p className="text-sm text-gray-500">
-                        Institution: {user.institution_id}
-                      </p>
-                    )}
-                  </div>
-                  <Badge variant="outline">{user.role}</Badge>
-                </div>
-              </div>
+          <Accordion type="multiple" className="w-full">
+            {Object.entries(categorizedUsers).map(([role, roleUsers]) => (
+              roleUsers.length > 0 && (
+                <AccordionItem key={role} value={role}>
+                  <AccordionTrigger>
+                    <div className="flex items-center gap-2">
+                      <span>{getRoleLabel(role)}</span>
+                      <Badge variant="secondary">{roleUsers.length}</Badge>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2">
+                      {roleUsers.map((user) => (
+                        <div key={user.id} className="border rounded p-3 bg-gray-50">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <h4 className="font-medium">{user.full_name}</h4>
+                              <p className="text-sm text-gray-500">
+                                @{user.username}
+                              </p>
+                              {user.role === "student" && (
+                                <p className="text-sm text-gray-500">
+                                  ID: {user.student_id} • Class: {user.class_section}
+                                </p>
+                              )}
+                              {(user.role === "teacher" || user.role === "principal") && user.subjects && user.subjects.length > 0 && (
+                                <p className="text-sm text-gray-500">
+                                  Subjects: {user.subjects.slice(0, 2).join(", ")}
+                                  {user.subjects.length > 2 && ` +${user.subjects.length - 2} more`}
+                                </p>
+                              )}
+                              {user.role === "institution_admin" && user.institution_id && (
+                                <p className="text-sm text-gray-500">
+                                  Institution: {user.institution_id}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleEditUser(user)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => confirmDeleteUser(user.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              )
             ))}
-            {users.length === 0 && (
-              <p className="text-gray-500 text-center py-4">No users found</p>
-            )}
-          </div>
+          </Accordion>
+          {users.length === 0 && (
+            <p className="text-gray-500 text-center py-4">No users found</p>
+          )}
         </CardContent>
       </Card>
+
+      {/* Edit User Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>
+              Update user information. Leave password empty to keep current password.
+            </DialogDescription>
+          </DialogHeader>
+          {editingUser && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-username">Username</Label>
+                  <Input
+                    id="edit-username"
+                    value={editingUser.username}
+                    onChange={(e) => setEditingUser({...editingUser, username: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-password">Password (optional)</Label>
+                  <Input
+                    id="edit-password"
+                    type="password"
+                    placeholder="Leave empty to keep current"
+                    value={editingUser.password}
+                    onChange={(e) => setEditingUser({...editingUser, password: e.target.value})}
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="edit-full-name">Full Name</Label>
+                <Input
+                  id="edit-full-name"
+                  value={editingUser.full_name}
+                  onChange={(e) => setEditingUser({...editingUser, full_name: e.target.value})}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-role">Role</Label>
+                <Select value={editingUser.role} onValueChange={(value) => setEditingUser({...editingUser, role: value})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="student">Student</SelectItem>
+                    <SelectItem value="teacher">Teacher</SelectItem>
+                    <SelectItem value="principal">Principal</SelectItem>
+                    <SelectItem value="verifier">Document Verifier</SelectItem>
+                    <SelectItem value="institution_admin">Institution Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {editingUser.role === "student" && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-student-id">Student ID</Label>
+                    <Input
+                      id="edit-student-id"
+                      value={editingUser.student_id}
+                      onChange={(e) => setEditingUser({...editingUser, student_id: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-class-section">Class Section</Label>
+                    <Select value={editingUser.class_section} onValueChange={(value) => setEditingUser({...editingUser, class_section: value})}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="A5">A5</SelectItem>
+                        <SelectItem value="A6">A6</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+
+              {(editingUser.role === "teacher" || editingUser.role === "principal") && (
+                <div>
+                  <Label>Subjects</Label>
+                  <div className="mt-2 grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+                    {[
+                      "Mathematics", "Physics", "English", "Basic Electrical Engineering",
+                      "Integrated Circuits", "CAD Lab", "Communication Lab", "Physics Lab",
+                      "BEE Lab", "Production and Manufacturing Engineering"
+                    ].map((subject) => (
+                      <div key={subject} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={`edit-subject-${subject}`}
+                          checked={editingUser.subjects.includes(subject)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setEditingUser({...editingUser, subjects: [...editingUser.subjects, subject]});
+                            } else {
+                              setEditingUser({...editingUser, subjects: editingUser.subjects.filter(s => s !== subject)});
+                            }
+                          }}
+                          className="rounded border-gray-300"
+                        />
+                        <Label htmlFor={`edit-subject-${subject}`} className="text-sm font-normal">
+                          {subject}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {editingUser.role === "institution_admin" && (
+                <div>
+                  <Label htmlFor="edit-institution-id">Institution ID</Label>
+                  <Input
+                    id="edit-institution-id"
+                    value={editingUser.institution_id}
+                    onChange={(e) => setEditingUser({...editingUser, institution_id: e.target.value})}
+                    placeholder="Enter institution ID"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={updateUser}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the user account and all associated data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={deleteUser} className="bg-red-600 hover:bg-red-700">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
