@@ -198,6 +198,16 @@ class UserLogin(BaseModel):
     username: str
     password: str
 
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    password: Optional[str] = None
+    full_name: Optional[str] = None
+    role: Optional[str] = None
+    student_id: Optional[str] = None
+    class_section: Optional[str] = None
+    subjects: Optional[List[str]] = None
+    institution_id: Optional[str] = None
+
 class QRSession(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     teacher_id: str
