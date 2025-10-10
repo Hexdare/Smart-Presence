@@ -82,29 +82,56 @@ class ProfileTester:
         """Test 1: Profile Update Endpoint - Update Username"""
         print("\n=== Testing Profile Update - Username ===")
         
-        # Use verifier role as it's available
-        verifier_token = self.get_auth_token_for_role("verifier")
-        if not verifier_token:
-            self.log_result("Profile Update Username", False, "Could not get verifier auth token")
-            return False
-        
+        # Create a new test user for username update test
         try:
+            test_user_data = {
+                "username": f"username_test_{datetime.now().strftime('%H%M%S')}",
+                "password": "testpass123",
+                "role": "verifier",
+                "full_name": "Username Test User"
+            }
+            
+            headers = {'Content-Type': 'application/json'}
+            response = self.session.post(f"{self.base_url}/auth/register", 
+                                       json=test_user_data, headers=headers)
+            
+            if response.status_code != 200:
+                self.log_result("Profile Update Username", False, "Could not create test user")
+                return False
+            
+            # Login to get token
+            login_data = {
+                "username": test_user_data["username"],
+                "password": "testpass123"
+            }
+            
+            response = self.session.post(f"{self.base_url}/auth/login", 
+                                       json=login_data, headers=headers)
+            
+            if response.status_code != 200:
+                self.log_result("Profile Update Username", False, "Could not login with test user")
+                return False
+            
+            token = response.json()['access_token']
+            
+            # Update username
+            new_username = f"updated_username_{datetime.now().strftime('%H%M%S')}"
             profile_data = {
-                "username": f"updated_verifier_{datetime.now().strftime('%H%M%S')}",
+                "username": new_username,
                 "current_password": "testpass123"
             }
             
-            headers = {
-                'Authorization': f'Bearer {verifier_token}',
+            auth_headers = {
+                'Authorization': f'Bearer {token}',
                 'Content-Type': 'application/json'
             }
             
             response = self.session.put(f"{self.base_url}/auth/profile", 
-                                      json=profile_data, headers=headers)
+                                      json=profile_data, headers=auth_headers)
             
             if response.status_code == 200:
                 result = response.json()
-                if result.get('username') == profile_data['username']:
+                if result.get('username') == new_username:
                     self.log_result("Profile Update Username", True, 
                                   "Username updated successfully", 
                                   f"New username: {result.get('username')}")
@@ -112,7 +139,7 @@ class ProfileTester:
                 else:
                     self.log_result("Profile Update Username", False, 
                                   "Username not updated in response", 
-                                  f"Expected: {profile_data['username']}, Got: {result.get('username')}")
+                                  f"Expected: {new_username}, Got: {result.get('username')}")
                     return False
             else:
                 self.log_result("Profile Update Username", False, 
