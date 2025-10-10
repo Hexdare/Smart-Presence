@@ -4601,7 +4601,16 @@ class BackendTester:
             self.test_profile_update_profile_picture,
             self.test_profile_update_wrong_password,
             self.test_profile_update_duplicate_username,
-            self.test_profile_update_multiple_fields
+            self.test_profile_update_multiple_fields,
+            
+            # System Admin Profile Update tests (PRIORITY - as requested in review)
+            self.test_system_admin_profile_update_login,
+            self.test_system_admin_profile_update_full_name,
+            self.test_system_admin_profile_update_profile_picture,
+            self.test_system_admin_profile_update_wrong_password,
+            self.test_system_admin_profile_update_username_blocked,
+            self.test_system_admin_profile_update_password_blocked,
+            self.test_system_admin_profile_update_multiple_fields
         ]
         
         passed = 0
