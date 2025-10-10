@@ -945,6 +945,138 @@ async def list_users_admin(
         logger.error(f"User listing failed: {str(e)}")
         raise HTTPException(status_code=500, detail="User listing failed")
 
+
+@api_router.put("/admin/users/{user_id}", response_model=dict)
+async def update_user_admin(
+    user_id: str,
+    user_data: UserUpdate,
+    current_user: User = Depends(get_current_user)
+):
+    """Update user data (system_admin only)"""
+    if current_user.role != "system_admin":
+        raise HTTPException(status_code=403, detail="Only system administrators can update users")
+    
+    try:
+        # Find the user to update
+        existing_user = await db.users.find_one({"id": user_id})
+        if not existing_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Prevent updating system_admin users
+        if existing_user.get("role") == "system_admin":
+            raise HTTPException(status_code=403, detail="Cannot modify system administrator accounts")
+        
+        # Build update dict with only provided fields
+        update_dict = {}
+        
+        # Check if username is being changed and if it's already taken
+        if user_data.username and user_data.username != existing_user["username"]:
+            username_exists = await db.users.find_one({"username": user_data.username})
+            if username_exists:
+                raise HTTPException(status_code=400, detail="Username already exists")
+            update_dict["username"] = user_data.username
+        
+        # Hash password if it's being updated
+        if user_data.password:
+            update_dict["password_hash"] = get_password_hash(user_data.password)
+        
+        if user_data.full_name:
+            update_dict["full_name"] = user_data.full_name
+        
+        # Role change validation
+        if user_data.role and user_data.role != existing_user["role"]:
+            allowed_roles = ["teacher", "student", "principal", "verifier", "institution_admin"]
+            if user_data.role not in allowed_roles:
+                raise HTTPException(status_code=400, detail=f"Invalid role. Allowed roles: {', '.join(allowed_roles)}")
+            update_dict["role"] = user_data.role
+        
+        # Update role-specific fields
+        current_role = user_data.role if user_data.role else existing_user["role"]
+        
+        if current_role == "student":
+            if user_data.student_id is not None:
+                update_dict["student_id"] = user_data.student_id
+            if user_data.class_section is not None:
+                if user_data.class_section not in ["A5", "A6", ""]:
+                    raise HTTPException(status_code=400, detail="Class section must be 'A5' or 'A6'")
+                update_dict["class_section"] = user_data.class_section
+        
+        if current_role in ["teacher", "principal"]:
+            if user_data.subjects is not None:
+                update_dict["subjects"] = user_data.subjects
+        
+        if current_role == "institution_admin":
+            if user_data.institution_id is not None:
+                if user_data.institution_id:
+                    # Verify institution exists
+                    institution = await db.institutions.find_one({"id": user_data.institution_id})
+                    if not institution:
+                        raise HTTPException(status_code=400, detail="Institution not found")
+                update_dict["institution_id"] = user_data.institution_id
+        
+        if not update_dict:
+            raise HTTPException(status_code=400, detail="No fields to update")
+        
+        # Perform update
+        result = await db.users.update_one(
+            {"id": user_id},
+            {"$set": update_dict}
+        )
+        
+        if result.modified_count == 0 and result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        logger.info(f"User {user_id} updated successfully by system admin")
+        return {
+            "message": "User updated successfully",
+            "user_id": user_id,
+            "updated_fields": list(update_dict.keys())
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"User update failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="User update failed")
+
+@api_router.delete("/admin/users/{user_id}", response_model=dict)
+async def delete_user_admin(
+    user_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Delete user (system_admin only)"""
+    if current_user.role != "system_admin":
+        raise HTTPException(status_code=403, detail="Only system administrators can delete users")
+    
+    try:
+        # Find the user to delete
+        existing_user = await db.users.find_one({"id": user_id})
+        if not existing_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Prevent deleting system_admin users
+        if existing_user.get("role") == "system_admin":
+            raise HTTPException(status_code=403, detail="Cannot delete system administrator accounts")
+        
+        # Delete the user
+        result = await db.users.delete_one({"id": user_id})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        logger.info(f"User {user_id} ({existing_user['username']}) deleted successfully by system admin")
+        return {
+            "message": "User deleted successfully",
+            "user_id": user_id,
+            "username": existing_user["username"]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"User deletion failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="User deletion failed")
+
 @api_router.post("/auth/login", response_model=Token)
 async def login_user(user_credentials: UserLogin):
     # First check if it's system admin login using environment variables
