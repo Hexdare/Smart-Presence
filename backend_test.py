@@ -4166,6 +4166,360 @@ class BackendTester:
             self.log_result("Profile Update Multiple Fields", False, f"Request failed: {str(e)}")
             return False
 
+    def test_system_admin_profile_update_login(self):
+        """Test system admin login for profile update testing"""
+        print("\n=== Testing System Admin Login for Profile Updates ===")
+        
+        try:
+            admin_login_data = {
+                "username": "admin",
+                "password": "admin123"
+            }
+            
+            headers = {
+                'Content-Type': 'application/json',
+                'Origin': 'https://smart-presence-sacs.vercel.app'
+            }
+            
+            response = self.session.post(f"{self.base_url}/auth/login", 
+                                       json=admin_login_data, headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if 'access_token' in result and 'token_type' in result:
+                    self.admin_token = result['access_token']
+                    self.log_result("System Admin Profile Login", True, 
+                                  "System admin login successful for profile testing", 
+                                  f"Token type: {result['token_type']}")
+                    return True
+                else:
+                    self.log_result("System Admin Profile Login", False, 
+                                  "Login response missing token fields", 
+                                  f"Response: {result}")
+                    return False
+            else:
+                self.log_result("System Admin Profile Login", False, 
+                              f"Login failed: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("System Admin Profile Login", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_system_admin_profile_update_full_name(self):
+        """Test system admin profile update - full_name (should work)"""
+        print("\n=== Testing System Admin Profile Update - Full Name ===")
+        
+        if not hasattr(self, 'admin_token') or not self.admin_token:
+            self.log_result("System Admin Full Name Update", False, "No admin token available")
+            return False
+        
+        try:
+            profile_data = {
+                "full_name": "Updated System Administrator",
+                "current_password": "admin123"
+            }
+            
+            headers = {
+                'Authorization': f'Bearer {self.admin_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = self.session.put(f"{self.base_url}/auth/profile", 
+                                      json=profile_data, headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('full_name') == "Updated System Administrator":
+                    self.log_result("System Admin Full Name Update", True, 
+                                  "System admin can update full_name", 
+                                  f"Updated full_name: {result.get('full_name')}")
+                    
+                    # Verify persistence via /auth/me
+                    me_response = self.session.get(f"{self.base_url}/auth/me", headers=headers)
+                    if me_response.status_code == 200:
+                        me_result = me_response.json()
+                        if me_result.get('full_name') == "Updated System Administrator":
+                            self.log_result("System Admin Full Name Persistence", True, 
+                                          "Updated full_name persists via /auth/me")
+                            return True
+                        else:
+                            self.log_result("System Admin Full Name Persistence", False, 
+                                          f"Full name not persisted: {me_result.get('full_name')}")
+                            return False
+                    else:
+                        self.log_result("System Admin Full Name Persistence", False, 
+                                      f"Failed to verify persistence: {me_response.status_code}")
+                        return False
+                else:
+                    self.log_result("System Admin Full Name Update", False, 
+                                  "Full name not updated in response", 
+                                  f"Response: {result}")
+                    return False
+            else:
+                self.log_result("System Admin Full Name Update", False, 
+                              f"Profile update failed: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("System Admin Full Name Update", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_system_admin_profile_update_profile_picture(self):
+        """Test system admin profile update - profile_picture (should work)"""
+        print("\n=== Testing System Admin Profile Update - Profile Picture ===")
+        
+        if not hasattr(self, 'admin_token') or not self.admin_token:
+            self.log_result("System Admin Profile Picture Update", False, "No admin token available")
+            return False
+        
+        try:
+            # Small base64 test image (1x1 pixel PNG)
+            test_base64_image = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+            
+            profile_data = {
+                "profile_picture": test_base64_image,
+                "current_password": "admin123"
+            }
+            
+            headers = {
+                'Authorization': f'Bearer {self.admin_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = self.session.put(f"{self.base_url}/auth/profile", 
+                                      json=profile_data, headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('profile_picture') == test_base64_image:
+                    self.log_result("System Admin Profile Picture Update", True, 
+                                  "System admin can update profile_picture", 
+                                  f"Profile picture updated successfully")
+                    
+                    # Verify persistence via /auth/me
+                    me_response = self.session.get(f"{self.base_url}/auth/me", headers=headers)
+                    if me_response.status_code == 200:
+                        me_result = me_response.json()
+                        if me_result.get('profile_picture') == test_base64_image:
+                            self.log_result("System Admin Profile Picture Persistence", True, 
+                                          "Updated profile_picture persists via /auth/me")
+                            return True
+                        else:
+                            self.log_result("System Admin Profile Picture Persistence", False, 
+                                          "Profile picture not persisted")
+                            return False
+                    else:
+                        self.log_result("System Admin Profile Picture Persistence", False, 
+                                      f"Failed to verify persistence: {me_response.status_code}")
+                        return False
+                else:
+                    self.log_result("System Admin Profile Picture Update", False, 
+                                  "Profile picture not updated in response", 
+                                  f"Response: {result}")
+                    return False
+            else:
+                self.log_result("System Admin Profile Picture Update", False, 
+                              f"Profile update failed: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("System Admin Profile Picture Update", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_system_admin_profile_update_wrong_password(self):
+        """Test system admin profile update with wrong current password (should return 401)"""
+        print("\n=== Testing System Admin Profile Update - Wrong Password ===")
+        
+        if not hasattr(self, 'admin_token') or not self.admin_token:
+            self.log_result("System Admin Wrong Password", False, "No admin token available")
+            return False
+        
+        try:
+            profile_data = {
+                "full_name": "Should Not Update",
+                "current_password": "wrong_password"
+            }
+            
+            headers = {
+                'Authorization': f'Bearer {self.admin_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = self.session.put(f"{self.base_url}/auth/profile", 
+                                      json=profile_data, headers=headers)
+            
+            if response.status_code == 401:
+                self.log_result("System Admin Wrong Password", True, 
+                              "Wrong current password correctly rejected with 401")
+                return True
+            else:
+                self.log_result("System Admin Wrong Password", False, 
+                              f"Expected 401, got {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("System Admin Wrong Password", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_system_admin_profile_update_username_blocked(self):
+        """Test system admin username change attempt (should return 400 - not allowed)"""
+        print("\n=== Testing System Admin Profile Update - Username Change Blocked ===")
+        
+        if not hasattr(self, 'admin_token') or not self.admin_token:
+            self.log_result("System Admin Username Change Blocked", False, "No admin token available")
+            return False
+        
+        try:
+            profile_data = {
+                "username": "new_admin_username",
+                "current_password": "admin123"
+            }
+            
+            headers = {
+                'Authorization': f'Bearer {self.admin_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = self.session.put(f"{self.base_url}/auth/profile", 
+                                      json=profile_data, headers=headers)
+            
+            if response.status_code == 400:
+                result = response.json()
+                if "username cannot be changed" in result.get('detail', '').lower():
+                    self.log_result("System Admin Username Change Blocked", True, 
+                                  "Username change correctly blocked for system admin", 
+                                  f"Error message: {result.get('detail')}")
+                    return True
+                else:
+                    self.log_result("System Admin Username Change Blocked", False, 
+                                  "Wrong error message for username change", 
+                                  f"Response: {result}")
+                    return False
+            else:
+                self.log_result("System Admin Username Change Blocked", False, 
+                              f"Expected 400, got {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("System Admin Username Change Blocked", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_system_admin_profile_update_password_blocked(self):
+        """Test system admin password change attempt (should return 400 - not allowed)"""
+        print("\n=== Testing System Admin Profile Update - Password Change Blocked ===")
+        
+        if not hasattr(self, 'admin_token') or not self.admin_token:
+            self.log_result("System Admin Password Change Blocked", False, "No admin token available")
+            return False
+        
+        try:
+            profile_data = {
+                "password": "new_admin_password",
+                "current_password": "admin123"
+            }
+            
+            headers = {
+                'Authorization': f'Bearer {self.admin_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = self.session.put(f"{self.base_url}/auth/profile", 
+                                      json=profile_data, headers=headers)
+            
+            if response.status_code == 400:
+                result = response.json()
+                if "password cannot be changed" in result.get('detail', '').lower():
+                    self.log_result("System Admin Password Change Blocked", True, 
+                                  "Password change correctly blocked for system admin", 
+                                  f"Error message: {result.get('detail')}")
+                    return True
+                else:
+                    self.log_result("System Admin Password Change Blocked", False, 
+                                  "Wrong error message for password change", 
+                                  f"Response: {result}")
+                    return False
+            else:
+                self.log_result("System Admin Password Change Blocked", False, 
+                              f"Expected 400, got {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("System Admin Password Change Blocked", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_system_admin_profile_update_multiple_fields(self):
+        """Test system admin multiple fields update (full_name + profile_picture together)"""
+        print("\n=== Testing System Admin Profile Update - Multiple Fields ===")
+        
+        if not hasattr(self, 'admin_token') or not self.admin_token:
+            self.log_result("System Admin Multiple Fields Update", False, "No admin token available")
+            return False
+        
+        try:
+            # Small base64 test image (1x1 pixel PNG)
+            test_base64_image = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+            
+            profile_data = {
+                "full_name": "Multi-Field Updated Admin",
+                "profile_picture": test_base64_image,
+                "current_password": "admin123"
+            }
+            
+            headers = {
+                'Authorization': f'Bearer {self.admin_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = self.session.put(f"{self.base_url}/auth/profile", 
+                                      json=profile_data, headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if (result.get('full_name') == "Multi-Field Updated Admin" and 
+                    result.get('profile_picture') == test_base64_image):
+                    self.log_result("System Admin Multiple Fields Update", True, 
+                                  "System admin can update multiple fields simultaneously", 
+                                  f"Updated full_name and profile_picture")
+                    
+                    # Verify persistence via /auth/me
+                    me_response = self.session.get(f"{self.base_url}/auth/me", headers=headers)
+                    if me_response.status_code == 200:
+                        me_result = me_response.json()
+                        if (me_result.get('full_name') == "Multi-Field Updated Admin" and 
+                            me_result.get('profile_picture') == test_base64_image):
+                            self.log_result("System Admin Multiple Fields Persistence", True, 
+                                          "Multiple field updates persist via /auth/me")
+                            return True
+                        else:
+                            self.log_result("System Admin Multiple Fields Persistence", False, 
+                                          "Multiple field updates not persisted")
+                            return False
+                    else:
+                        self.log_result("System Admin Multiple Fields Persistence", False, 
+                                      f"Failed to verify persistence: {me_response.status_code}")
+                        return False
+                else:
+                    self.log_result("System Admin Multiple Fields Update", False, 
+                                  "Multiple fields not updated correctly", 
+                                  f"Response: {result}")
+                    return False
+            else:
+                self.log_result("System Admin Multiple Fields Update", False, 
+                              f"Multiple fields update failed: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("System Admin Multiple Fields Update", False, f"Request failed: {str(e)}")
+            return False
+
     def run_all_tests(self):
         """Run all backend tests"""
         print(f"\n{'='*60}")
