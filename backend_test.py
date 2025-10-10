@@ -3662,7 +3662,25 @@ class BackendTester:
         self.test_admin_delete_user_non_admin_forbidden()
         
         # Print summary
-        self.print_test_summary()
+        total = len(self.test_results)
+        passed = sum(1 for r in self.test_results if r['success'])
+        
+        print(f"\n{'='*60}")
+        print("USER MANAGEMENT TEST SUMMARY")
+        print(f"{'='*60}")
+        print(f"Total Tests: {total}")
+        print(f"Passed: {passed}")
+        print(f"Failed: {total - passed}")
+        print(f"Success Rate: {(passed/total)*100:.1f}%" if total > 0 else "No tests run")
+        
+        # Show failed tests
+        failed_tests = [r for r in self.test_results if not r['success']]
+        if failed_tests:
+            print(f"\n❌ FAILED TESTS:")
+            for test in failed_tests:
+                print(f"  - {test['test']}: {test['message']}")
+        
+        return passed == total
 
     def run_all_tests(self):
         """Run all backend tests"""
