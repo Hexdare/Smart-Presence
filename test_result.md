@@ -372,9 +372,9 @@ frontend:
     implemented: true
     working: true
     file: "backend/server.py, frontend/src/App.js"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
       - working: "unknown"
         agent: "main"
@@ -382,6 +382,12 @@ frontend:
       - working: true
         agent: "testing"
         comment: "COMPREHENSIVE PROFILE UPDATE TESTING COMPLETE: All 7 profile update tests passed (100% success rate). Verified: 1) Username update works correctly with proper validation, 2) Full name update functions properly, 3) Password update works and new password is functional for login, 4) Profile picture update works with base64 storage and persists correctly via /auth/me endpoint, 5) Wrong current password correctly rejected with 401 error and appropriate error message, 6) Duplicate username correctly rejected with 400 error, 7) Multiple fields update (username, full_name, password, profile_picture) works simultaneously. Backend profile update functionality is fully functional and production-ready."
+      - working: false
+        agent: "user"
+        comment: "USER REPORTED ISSUE: System admin user (username: admin) on production backend (Render) gets 401 Unauthorized error when trying to update profile even with correct password. Error: 'https://smart-attendance-system-ur85.onrender.com/api/auth/profile 401 (Unauthorized)' at App.js:545"
+      - working: "unknown"
+        agent: "main"
+        comment: "FIXED SYSTEM ADMIN PROFILE UPDATE: Root cause was that system admin users are authenticated via environment variables and don't exist in the database, but profile update endpoint only checked database for password verification. IMPLEMENTED: 1) Added special handling in update_user_profile endpoint for system_admin role, 2) System admin password verification now checks against SYSTEM_ADMIN_PASSWORD environment variable, 3) System admin profile updates (full_name, profile_picture) are stored in separate collection 'system_admin_profile', 4) Username and password changes blocked for system admin (managed via environment variables), 5) Updated get_current_user to fetch system admin profile data from database. Backend restarted successfully. Ready for testing."
 
   - task: "Self-Service Profile Editing"
     implemented: true
