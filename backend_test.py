@@ -2408,6 +2408,643 @@ class BackendTester:
         
         return passed == total
 
+    # ===== USER MANAGEMENT SYSTEM TESTS (NEW) =====
+    
+    def get_system_admin_token(self):
+        """Get system admin authentication token"""
+        try:
+            admin_login_data = {
+                "username": "admin",
+                "password": "admin123"
+            }
+            
+            headers = {'Content-Type': 'application/json'}
+            response = self.session.post(f"{self.base_url}/auth/login", 
+                                       json=admin_login_data, headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result.get('access_token')
+            return None
+        except Exception:
+            return None
+    
+    def test_registration_restriction_teacher(self):
+        """Test that teacher role is blocked from public registration"""
+        print("\n=== Testing Teacher Registration Restriction ===")
+        
+        try:
+            teacher_data = {
+                "username": "restricted_teacher_user",
+                "password": "testpass123",
+                "role": "teacher",
+                "subjects": ["Mathematics", "Physics"],
+                "full_name": "Restricted Teacher User"
+            }
+            
+            headers = {'Content-Type': 'application/json'}
+            response = self.session.post(f"{self.base_url}/auth/register", 
+                                       json=teacher_data, headers=headers)
+            
+            if response.status_code == 403:
+                result = response.json()
+                if "can only be created by system administrators" in result.get('detail', ''):
+                    self.log_result("Teacher Registration Restriction", True, 
+                                  "Teacher role correctly blocked from public registration")
+                    return True
+                else:
+                    self.log_result("Teacher Registration Restriction", False, 
+                                  "Wrong error message for teacher restriction", 
+                                  f"Response: {result}")
+                    return False
+            else:
+                self.log_result("Teacher Registration Restriction", False, 
+                              f"Expected 403, got {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Teacher Registration Restriction", False, f"Request failed: {str(e)}")
+            return False
+    
+    def test_registration_restriction_student(self):
+        """Test that student role is blocked from public registration"""
+        print("\n=== Testing Student Registration Restriction ===")
+        
+        try:
+            student_data = {
+                "username": "restricted_student_user",
+                "password": "testpass123",
+                "role": "student",
+                "student_id": "STU999",
+                "class_section": "A5",
+                "full_name": "Restricted Student User"
+            }
+            
+            headers = {'Content-Type': 'application/json'}
+            response = self.session.post(f"{self.base_url}/auth/register", 
+                                       json=student_data, headers=headers)
+            
+            if response.status_code == 403:
+                result = response.json()
+                if "can only be created by system administrators" in result.get('detail', ''):
+                    self.log_result("Student Registration Restriction", True, 
+                                  "Student role correctly blocked from public registration")
+                    return True
+                else:
+                    self.log_result("Student Registration Restriction", False, 
+                                  "Wrong error message for student restriction", 
+                                  f"Response: {result}")
+                    return False
+            else:
+                self.log_result("Student Registration Restriction", False, 
+                              f"Expected 403, got {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Student Registration Restriction", False, f"Request failed: {str(e)}")
+            return False
+    
+    def test_registration_restriction_principal(self):
+        """Test that principal role is blocked from public registration"""
+        print("\n=== Testing Principal Registration Restriction ===")
+        
+        try:
+            principal_data = {
+                "username": "restricted_principal_user",
+                "password": "testpass123",
+                "role": "principal",
+                "subjects": ["Mathematics"],
+                "full_name": "Restricted Principal User"
+            }
+            
+            headers = {'Content-Type': 'application/json'}
+            response = self.session.post(f"{self.base_url}/auth/register", 
+                                       json=principal_data, headers=headers)
+            
+            if response.status_code == 403:
+                result = response.json()
+                if "can only be created by system administrators" in result.get('detail', ''):
+                    self.log_result("Principal Registration Restriction", True, 
+                                  "Principal role correctly blocked from public registration")
+                    return True
+                else:
+                    self.log_result("Principal Registration Restriction", False, 
+                                  "Wrong error message for principal restriction", 
+                                  f"Response: {result}")
+                    return False
+            else:
+                self.log_result("Principal Registration Restriction", False, 
+                              f"Expected 403, got {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Principal Registration Restriction", False, f"Request failed: {str(e)}")
+            return False
+    
+    def test_registration_allowed_verifier(self):
+        """Test that verifier role is allowed for public registration"""
+        print("\n=== Testing Verifier Registration Allowed ===")
+        
+        try:
+            verifier_data = {
+                "username": "verifier_user_test",
+                "password": "testpass123",
+                "role": "verifier",
+                "full_name": "Test Verifier User"
+            }
+            
+            headers = {'Content-Type': 'application/json'}
+            response = self.session.post(f"{self.base_url}/auth/register", 
+                                       json=verifier_data, headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if 'user_id' in result:
+                    self.log_result("Verifier Registration Allowed", True, 
+                                  "Verifier role correctly allowed for public registration", 
+                                  f"User ID: {result['user_id']}")
+                    return True
+                else:
+                    self.log_result("Verifier Registration Allowed", False, 
+                                  "Registration response missing user_id", 
+                                  f"Response: {result}")
+                    return False
+            elif response.status_code == 400:
+                result = response.json()
+                if "already registered" in result.get('detail', ''):
+                    self.log_result("Verifier Registration Allowed", True, 
+                                  "Verifier user already exists (expected)", 
+                                  f"Response: {result}")
+                    return True
+                else:
+                    self.log_result("Verifier Registration Allowed", False, 
+                                  f"Registration failed with validation error: {result.get('detail')}", 
+                                  f"Full response: {result}")
+                    return False
+            else:
+                self.log_result("Verifier Registration Allowed", False, 
+                              f"Unexpected status code: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Verifier Registration Allowed", False, f"Request failed: {str(e)}")
+            return False
+    
+    def test_registration_allowed_institution_admin(self):
+        """Test that institution_admin role is allowed for public registration"""
+        print("\n=== Testing Institution Admin Registration Allowed ===")
+        
+        try:
+            institution_admin_data = {
+                "username": "institution_admin_test",
+                "password": "testpass123",
+                "role": "institution_admin",
+                "institution_id": "inst_001",
+                "full_name": "Test Institution Admin"
+            }
+            
+            headers = {'Content-Type': 'application/json'}
+            response = self.session.post(f"{self.base_url}/auth/register", 
+                                       json=institution_admin_data, headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if 'user_id' in result:
+                    self.log_result("Institution Admin Registration Allowed", True, 
+                                  "Institution admin role correctly allowed for public registration", 
+                                  f"User ID: {result['user_id']}")
+                    return True
+                else:
+                    self.log_result("Institution Admin Registration Allowed", False, 
+                                  "Registration response missing user_id", 
+                                  f"Response: {result}")
+                    return False
+            elif response.status_code == 400:
+                result = response.json()
+                if "already registered" in result.get('detail', ''):
+                    self.log_result("Institution Admin Registration Allowed", True, 
+                                  "Institution admin user already exists (expected)", 
+                                  f"Response: {result}")
+                    return True
+                else:
+                    self.log_result("Institution Admin Registration Allowed", False, 
+                                  f"Registration failed with validation error: {result.get('detail')}", 
+                                  f"Full response: {result}")
+                    return False
+            else:
+                self.log_result("Institution Admin Registration Allowed", False, 
+                              f"Unexpected status code: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Institution Admin Registration Allowed", False, f"Request failed: {str(e)}")
+            return False
+    
+    def test_admin_user_creation_system_admin_only(self):
+        """Test that only system admin can access user creation endpoint"""
+        print("\n=== Testing Admin User Creation Access Control ===")
+        
+        # Test with non-admin user (should fail)
+        try:
+            # Get a regular user token
+            regular_token = self.get_auth_token_for_role("teacher")
+            if not regular_token:
+                # Try to get any available token
+                regular_token = self.get_auth_token_for_role("student")
+            
+            if regular_token:
+                user_data = {
+                    "username": "test_created_user",
+                    "password": "testpass123",
+                    "role": "student",
+                    "student_id": "STU888",
+                    "class_section": "A5",
+                    "full_name": "Test Created User"
+                }
+                
+                headers = {
+                    'Authorization': f'Bearer {regular_token}',
+                    'Content-Type': 'application/json'
+                }
+                
+                response = self.session.post(f"{self.base_url}/admin/users/create", 
+                                           json=user_data, headers=headers)
+                
+                if response.status_code == 403:
+                    self.log_result("Admin User Creation Access Control (Non-Admin)", True, 
+                                  "Non-admin users correctly forbidden from user creation endpoint")
+                else:
+                    self.log_result("Admin User Creation Access Control (Non-Admin)", False, 
+                                  f"Expected 403, got {response.status_code}", 
+                                  f"Response: {response.text}")
+                    return False
+            
+            # Test with system admin (should work)
+            admin_token = self.get_system_admin_token()
+            if not admin_token:
+                self.log_result("Admin User Creation Access Control", False, 
+                              "Could not get system admin token")
+                return False
+            
+            user_data = {
+                "username": "admin_created_student",
+                "password": "testpass123",
+                "role": "student",
+                "student_id": "STU777",
+                "class_section": "A6",
+                "full_name": "Admin Created Student"
+            }
+            
+            headers = {
+                'Authorization': f'Bearer {admin_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = self.session.post(f"{self.base_url}/admin/users/create", 
+                                       json=user_data, headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if 'user_id' in result and result.get('role') == 'student':
+                    self.log_result("Admin User Creation Access Control (System Admin)", True, 
+                                  "System admin can successfully create users", 
+                                  f"Created user: {result.get('username')} with role: {result.get('role')}")
+                    return True
+                else:
+                    self.log_result("Admin User Creation Access Control (System Admin)", False, 
+                                  "User creation response missing required fields", 
+                                  f"Response: {result}")
+                    return False
+            elif response.status_code == 400:
+                result = response.json()
+                if "already registered" in result.get('detail', ''):
+                    self.log_result("Admin User Creation Access Control (System Admin)", True, 
+                                  "System admin endpoint accessible (user already exists)", 
+                                  f"Response: {result}")
+                    return True
+                else:
+                    self.log_result("Admin User Creation Access Control (System Admin)", False, 
+                                  f"User creation failed with validation error: {result.get('detail')}", 
+                                  f"Full response: {result}")
+                    return False
+            else:
+                self.log_result("Admin User Creation Access Control (System Admin)", False, 
+                              f"Unexpected status code: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Admin User Creation Access Control", False, f"Request failed: {str(e)}")
+            return False
+    
+    def test_admin_user_creation_all_roles(self):
+        """Test admin user creation for all allowed roles"""
+        print("\n=== Testing Admin User Creation for All Roles ===")
+        
+        admin_token = self.get_system_admin_token()
+        if not admin_token:
+            self.log_result("Admin User Creation All Roles", False, "Could not get system admin token")
+            return False
+        
+        headers = {
+            'Authorization': f'Bearer {admin_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Test creating users with different roles
+        test_users = [
+            {
+                "username": "admin_created_teacher",
+                "password": "testpass123",
+                "role": "teacher",
+                "subjects": ["Mathematics", "Physics"],
+                "full_name": "Admin Created Teacher"
+            },
+            {
+                "username": "admin_created_student2",
+                "password": "testpass123",
+                "role": "student",
+                "student_id": "STU666",
+                "class_section": "A5",
+                "full_name": "Admin Created Student 2"
+            },
+            {
+                "username": "admin_created_principal",
+                "password": "testpass123",
+                "role": "principal",
+                "subjects": ["Mathematics"],
+                "full_name": "Admin Created Principal"
+            },
+            {
+                "username": "admin_created_verifier",
+                "password": "testpass123",
+                "role": "verifier",
+                "full_name": "Admin Created Verifier"
+            },
+            {
+                "username": "admin_created_inst_admin",
+                "password": "testpass123",
+                "role": "institution_admin",
+                "institution_id": "inst_002",
+                "full_name": "Admin Created Institution Admin"
+            }
+        ]
+        
+        all_passed = True
+        
+        for user_data in test_users:
+            try:
+                response = self.session.post(f"{self.base_url}/admin/users/create", 
+                                           json=user_data, headers=headers)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if 'user_id' in result and result.get('role') == user_data['role']:
+                        self.log_result(f"Admin Create {user_data['role'].title()}", True, 
+                                      f"Successfully created {user_data['role']} user", 
+                                      f"User: {result.get('username')}")
+                    else:
+                        self.log_result(f"Admin Create {user_data['role'].title()}", False, 
+                                      "Response missing required fields", 
+                                      f"Response: {result}")
+                        all_passed = False
+                elif response.status_code == 400:
+                    result = response.json()
+                    if "already registered" in result.get('detail', ''):
+                        self.log_result(f"Admin Create {user_data['role'].title()}", True, 
+                                      f"{user_data['role'].title()} user already exists (expected)")
+                    else:
+                        self.log_result(f"Admin Create {user_data['role'].title()}", False, 
+                                      f"Creation failed: {result.get('detail')}", 
+                                      f"Full response: {result}")
+                        all_passed = False
+                else:
+                    self.log_result(f"Admin Create {user_data['role'].title()}", False, 
+                                  f"Unexpected status code: {response.status_code}", 
+                                  f"Response: {response.text}")
+                    all_passed = False
+                    
+            except Exception as e:
+                self.log_result(f"Admin Create {user_data['role'].title()}", False, f"Request failed: {str(e)}")
+                all_passed = False
+        
+        return all_passed
+    
+    def test_admin_user_creation_validation(self):
+        """Test validation in admin user creation endpoint"""
+        print("\n=== Testing Admin User Creation Validation ===")
+        
+        admin_token = self.get_system_admin_token()
+        if not admin_token:
+            self.log_result("Admin User Creation Validation", False, "Could not get system admin token")
+            return False
+        
+        headers = {
+            'Authorization': f'Bearer {admin_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Test validation scenarios
+        validation_tests = [
+            {
+                "name": "Student Missing Student ID",
+                "data": {
+                    "username": "invalid_student",
+                    "password": "testpass123",
+                    "role": "student",
+                    "class_section": "A5",
+                    "full_name": "Invalid Student"
+                },
+                "expected_error": "Student ID and class section are required"
+            },
+            {
+                "name": "Student Invalid Class Section",
+                "data": {
+                    "username": "invalid_student2",
+                    "password": "testpass123",
+                    "role": "student",
+                    "student_id": "STU555",
+                    "class_section": "B1",
+                    "full_name": "Invalid Student 2"
+                },
+                "expected_error": "Class section must be 'A5' or 'A6'"
+            },
+            {
+                "name": "Teacher Missing Subjects",
+                "data": {
+                    "username": "invalid_teacher",
+                    "password": "testpass123",
+                    "role": "teacher",
+                    "full_name": "Invalid Teacher"
+                },
+                "expected_error": "At least one subject is required"
+            },
+            {
+                "name": "Institution Admin Missing Institution ID",
+                "data": {
+                    "username": "invalid_inst_admin",
+                    "password": "testpass123",
+                    "role": "institution_admin",
+                    "full_name": "Invalid Institution Admin"
+                },
+                "expected_error": "Institution ID is required"
+            }
+        ]
+        
+        all_passed = True
+        
+        for test_case in validation_tests:
+            try:
+                response = self.session.post(f"{self.base_url}/admin/users/create", 
+                                           json=test_case["data"], headers=headers)
+                
+                if response.status_code == 400:
+                    result = response.json()
+                    if test_case["expected_error"] in result.get('detail', ''):
+                        self.log_result(f"Validation: {test_case['name']}", True, 
+                                      f"Validation correctly rejected invalid data")
+                    else:
+                        self.log_result(f"Validation: {test_case['name']}", False, 
+                                      f"Wrong validation error. Expected: {test_case['expected_error']}, Got: {result.get('detail')}")
+                        all_passed = False
+                else:
+                    self.log_result(f"Validation: {test_case['name']}", False, 
+                                  f"Expected 400, got {response.status_code}", 
+                                  f"Response: {response.text}")
+                    all_passed = False
+                    
+            except Exception as e:
+                self.log_result(f"Validation: {test_case['name']}", False, f"Request failed: {str(e)}")
+                all_passed = False
+        
+        return all_passed
+    
+    def test_admin_user_listing_system_admin_only(self):
+        """Test that only system admin can access user listing endpoint"""
+        print("\n=== Testing Admin User Listing Access Control ===")
+        
+        # Test with non-admin user (should fail)
+        try:
+            regular_token = self.get_auth_token_for_role("teacher")
+            if not regular_token:
+                regular_token = self.get_auth_token_for_role("student")
+            
+            if regular_token:
+                headers = {'Authorization': f'Bearer {regular_token}'}
+                response = self.session.get(f"{self.base_url}/admin/users", headers=headers)
+                
+                if response.status_code == 403:
+                    self.log_result("Admin User Listing Access Control (Non-Admin)", True, 
+                                  "Non-admin users correctly forbidden from user listing endpoint")
+                else:
+                    self.log_result("Admin User Listing Access Control (Non-Admin)", False, 
+                                  f"Expected 403, got {response.status_code}", 
+                                  f"Response: {response.text}")
+                    return False
+            
+            # Test with system admin (should work)
+            admin_token = self.get_system_admin_token()
+            if not admin_token:
+                self.log_result("Admin User Listing Access Control", False, 
+                              "Could not get system admin token")
+                return False
+            
+            headers = {'Authorization': f'Bearer {admin_token}'}
+            response = self.session.get(f"{self.base_url}/admin/users", headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if 'users' in result and isinstance(result['users'], list):
+                    users = result['users']
+                    # Check that users have required fields
+                    if users and all('id' in user and 'username' in user and 'role' in user and 'full_name' in user for user in users):
+                        self.log_result("Admin User Listing Access Control (System Admin)", True, 
+                                      f"System admin can list users ({len(users)} users found)", 
+                                      f"Sample user fields: {list(users[0].keys()) if users else 'No users'}")
+                        return True
+                    else:
+                        self.log_result("Admin User Listing Access Control (System Admin)", False, 
+                                      "User listing response missing required fields", 
+                                      f"Users structure: {users[:2] if users else 'No users'}")
+                        return False
+                else:
+                    self.log_result("Admin User Listing Access Control (System Admin)", False, 
+                                  "User listing response missing 'users' field or not a list", 
+                                  f"Response: {result}")
+                    return False
+            else:
+                self.log_result("Admin User Listing Access Control (System Admin)", False, 
+                              f"Unexpected status code: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Admin User Listing Access Control", False, f"Request failed: {str(e)}")
+            return False
+    
+    def test_system_admin_authentication(self):
+        """Test system admin login with admin/admin123 credentials"""
+        print("\n=== Testing System Admin Authentication ===")
+        
+        try:
+            admin_login_data = {
+                "username": "admin",
+                "password": "admin123"
+            }
+            
+            headers = {'Content-Type': 'application/json'}
+            response = self.session.post(f"{self.base_url}/auth/login", 
+                                       json=admin_login_data, headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if 'access_token' in result and 'token_type' in result:
+                    # Test /auth/me endpoint to verify system admin role
+                    admin_headers = {'Authorization': f'Bearer {result["access_token"]}'}
+                    me_response = self.session.get(f"{self.base_url}/auth/me", headers=admin_headers)
+                    
+                    if me_response.status_code == 200:
+                        user_info = me_response.json()
+                        if user_info.get('role') == 'system_admin' and user_info.get('username') == 'admin':
+                            self.log_result("System Admin Authentication", True, 
+                                          "System admin login and role verification successful", 
+                                          f"User: {user_info.get('username')}, Role: {user_info.get('role')}")
+                            return True
+                        else:
+                            self.log_result("System Admin Authentication", False, 
+                                          "System admin role verification failed", 
+                                          f"Expected role: system_admin, username: admin. Got: {user_info}")
+                            return False
+                    else:
+                        self.log_result("System Admin Authentication", False, 
+                                      f"Failed to verify admin user info: {me_response.status_code}", 
+                                      f"Response: {me_response.text}")
+                        return False
+                else:
+                    self.log_result("System Admin Authentication", False, 
+                                  "Login response missing token fields", 
+                                  f"Response: {result}")
+                    return False
+            elif response.status_code == 401:
+                self.log_result("System Admin Authentication", False, 
+                              "System admin login failed - incorrect credentials", 
+                              f"Response: {response.text}")
+                return False
+            else:
+                self.log_result("System Admin Authentication", False, 
+                              f"Unexpected status code: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("System Admin Authentication", False, f"Request failed: {str(e)}")
+            return False
+
     def run_all_tests(self):
         """Run all backend tests"""
         print(f"\n{'='*60}")
