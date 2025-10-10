@@ -925,7 +925,8 @@ async def list_users_admin(
     
     try:
         users = []
-        async for user in db.users.find({}):
+        # Filter out system_admin users from the list
+        async for user in db.users.find({"role": {"$ne": "system_admin"}}):
             users.append({
                 "id": user["id"],
                 "username": user["username"],
