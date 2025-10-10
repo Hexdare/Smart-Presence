@@ -819,6 +819,91 @@ async def register_user(user_data: UserCreate):
         logger.error(f"An unexpected error occurred during registration: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="An internal server error occurred.")
 
+@api_router.post("/admin/users/create", response_model=dict)
+async def create_user_admin(
+    user_data: UserCreate,
+    current_user: User = Depends(get_current_user)
+):
+    """Create user with any role (system_admin only)"""
+    if current_user.role != "system_admin":
+        raise HTTPException(status_code=403, detail="Only system administrators can create users with restricted roles")
+    
+    logger.info(f"System admin creating user: {user_data.username} with role: {user_data.role}")
+    try:
+        # Check if user exists
+        existing_user = await db.users.find_one({"username": user_data.username})
+        if existing_user:
+            logger.warning(f"Username {user_data.username} already exists")
+            raise HTTPException(status_code=400, detail="Username already registered")
+        
+        # Validate role - system admin can create any role except system_admin
+        allowed_roles = ["teacher", "student", "principal", "verifier", "institution_admin"]
+        if user_data.role not in allowed_roles:
+            raise HTTPException(status_code=400, detail=f"Invalid role. Allowed roles: {', '.join(allowed_roles)}")
+        
+        # For students, validate required fields
+        if user_data.role == "student":
+            if not user_data.student_id or not user_data.class_section:
+                raise HTTPException(status_code=400, detail="Student ID and class section are required for students")
+            if user_data.class_section not in ["A5", "A6"]:
+                raise HTTPException(status_code=400, detail="Class section must be 'A5' or 'A6'")
+        
+        # For teachers, validate required fields
+        if user_data.role == "teacher":
+            if not user_data.subjects or len(user_data.subjects) == 0:
+                raise HTTPException(status_code=400, detail="At least one subject is required for teachers")
+        
+        # For principals, validate required fields (principals can teach subjects but it's optional)
+        if user_data.role == "principal":
+            # Principals have all permissions, no specific validation needed
+            pass
+        
+        # For institution admins, validate institution_id is provided
+        if user_data.role == "institution_admin":
+            if not user_data.institution_id:
+                raise HTTPException(status_code=400, detail="Institution ID is required for institution admins")
+            # Verify institution exists
+            institution = await db.institutions.find_one({"id": user_data.institution_id})
+            if not institution:
+                raise HTTPException(status_code=400, detail="Institution not found")
+        
+        # For verifiers, no additional validation required
+        if user_data.role == "verifier":
+            pass
+        
+        # Hash password
+        password_hash = get_password_hash(user_data.password)
+        
+        # Create user object
+        new_user = User(
+            username=user_data.username,
+            password_hash=password_hash,
+            role=user_data.role,
+            student_id=user_data.student_id,
+            class_section=user_data.class_section,
+            subjects=user_data.subjects,
+            institution_id=user_data.institution_id,
+            full_name=user_data.full_name
+        )
+        
+        # Insert into database
+        result = await db.users.insert_one(new_user.dict())
+        new_user.id = str(result.inserted_id)
+        
+        logger.info(f"User created successfully: {user_data.username} with role: {user_data.role}")
+        return {
+            "message": "User created successfully",
+            "user_id": new_user.id,
+            "username": new_user.username,
+            "role": new_user.role
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"User creation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="User creation failed")
+
 @api_router.post("/auth/login", response_model=Token)
 async def login_user(user_credentials: UserLogin):
     # First check if it's system admin login using environment variables
