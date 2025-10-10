@@ -770,9 +770,11 @@ async def register_user(user_data: UserCreate):
             raise HTTPException(status_code=400, detail="Username already registered")
         
         # Validate role (system_admin is not registerable - use pre-configured credentials)
-        allowed_roles = ["teacher", "student", "principal", "verifier", "institution_admin"]
-        if user_data.role not in allowed_roles:
-            raise HTTPException(status_code=400, detail=f"Invalid role. Allowed roles: {', '.join(allowed_roles)}")
+        # Only verifier and institution_admin can register publicly
+        # teacher, student, principal can only be created by system admin
+        public_allowed_roles = ["verifier", "institution_admin"]
+        if user_data.role not in public_allowed_roles:
+            raise HTTPException(status_code=403, detail=f"Role '{user_data.role}' can only be created by system administrators. Allowed roles for public registration: {', '.join(public_allowed_roles)}")
         
         # For students, validate required fields
         if user_data.role == "student":
