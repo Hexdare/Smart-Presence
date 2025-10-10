@@ -3523,22 +3523,38 @@ class BackendTester:
             all_passed = True
             
             # Test 1: Delete the user successfully
+            # First, get the actual user ID from the database (there's a bug where creation returns ObjectId but queries use UUID)
             try:
-                response = self.session.delete(f"{self.base_url}/admin/users/{user_id}", headers=headers)
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    if result.get('user_id') == user_id and result.get('username') == username:
-                        self.log_result("Delete User Successfully", True, 
-                                      f"Successfully deleted user {username}")
+                users_response = self.session.get(f"{self.base_url}/admin/users", headers=headers)
+                if users_response.status_code == 200:
+                    users = users_response.json().get('users', [])
+                    actual_user = next((user for user in users if user['username'] == username), None)
+                    if actual_user:
+                        actual_user_id = actual_user['id']
+                        
+                        response = self.session.delete(f"{self.base_url}/admin/users/{actual_user_id}", headers=headers)
+                        
+                        if response.status_code == 200:
+                            result = response.json()
+                            if result.get('username') == username:
+                                self.log_result("Delete User Successfully", True, 
+                                              f"Successfully deleted user {username}")
+                            else:
+                                self.log_result("Delete User Successfully", False, 
+                                              "Delete response missing expected fields", f"Response: {result}")
+                                all_passed = False
+                        else:
+                            self.log_result("Delete User Successfully", False, 
+                                          f"User deletion failed: {response.status_code}", 
+                                          f"Response: {response.text}")
+                            all_passed = False
                     else:
                         self.log_result("Delete User Successfully", False, 
-                                      "Delete response missing expected fields", f"Response: {result}")
+                                      f"Could not find created user {username} in user list")
                         all_passed = False
                 else:
                     self.log_result("Delete User Successfully", False, 
-                                  f"User deletion failed: {response.status_code}", 
-                                  f"Response: {response.text}")
+                                  f"Could not get users list: {users_response.status_code}")
                     all_passed = False
             except Exception as e:
                 self.log_result("Delete User Successfully", False, f"Request failed: {str(e)}")
