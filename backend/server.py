@@ -1125,6 +1125,70 @@ async def login_user(user_credentials: UserLogin):
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     return current_user
 
+@api_router.put("/auth/profile", response_model=User)
+async def update_user_profile(
+    profile_data: ProfileUpdate,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Allow users to update their own profile (username, password, full_name, profile_picture)
+    Requires current password verification
+    """
+    try:
+        # Verify current password
+        user_in_db = await db.users.find_one({"username": current_user.username})
+        if not user_in_db or not verify_password(profile_data.current_password, user_in_db["password_hash"]):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Current password is incorrect"
+            )
+        
+        # Prepare update data
+        update_data = {}
+        
+        # Check if username is being changed and if it's already taken
+        if profile_data.username and profile_data.username != current_user.username:
+            existing_user = await db.users.find_one({"username": profile_data.username})
+            if existing_user:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Username already exists"
+                )
+            update_data["username"] = profile_data.username
+        
+        # Hash new password if provided
+        if profile_data.password:
+            update_data["password_hash"] = get_password_hash(profile_data.password)
+        
+        # Update full name if provided
+        if profile_data.full_name:
+            update_data["full_name"] = profile_data.full_name
+        
+        # Update profile picture if provided
+        if profile_data.profile_picture is not None:  # Allow empty string to remove picture
+            update_data["profile_picture"] = profile_data.profile_picture
+        
+        # Perform update if there are changes
+        if update_data:
+            await db.users.update_one(
+                {"id": current_user.id},
+                {"$set": update_data}
+            )
+        
+        # Fetch and return updated user
+        updated_user = await db.users.find_one({"id": current_user.id})
+        if not updated_user:
+            raise HTTPException(status_code=404, detail="User not found after update")
+        
+        return User(**updated_user)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Profile update failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Profile update failed")
+
+
 # Helper function to get current active classes for a teacher
 def get_current_active_classes(teacher_subjects: List[str]):
     """Get currently active classes based on current time and teacher's subjects"""
