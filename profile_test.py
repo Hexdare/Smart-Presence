@@ -385,28 +385,51 @@ class ProfileTester:
         """Test 6: Profile Update Endpoint - Duplicate Username"""
         print("\n=== Testing Profile Update - Duplicate Username ===")
         
-        # Get tokens for two different users
-        verifier_token = self.get_auth_token_for_role("verifier")
-        teacher_token = self.get_auth_token_for_role("teacher")
-        
-        if not verifier_token or not teacher_token:
-            self.log_result("Profile Update Duplicate Username", False, "Could not get required auth tokens")
-            return False
-        
+        # Create a new test user for duplicate username test
         try:
-            # Try to update verifier username to teacher's username
+            test_user_data = {
+                "username": f"duplicate_test_{datetime.now().strftime('%H%M%S')}",
+                "password": "testpass123",
+                "role": "verifier",
+                "full_name": "Duplicate Test User"
+            }
+            
+            headers = {'Content-Type': 'application/json'}
+            response = self.session.post(f"{self.base_url}/auth/register", 
+                                       json=test_user_data, headers=headers)
+            
+            if response.status_code != 200:
+                self.log_result("Profile Update Duplicate Username", False, "Could not create test user")
+                return False
+            
+            # Login to get token
+            login_data = {
+                "username": test_user_data["username"],
+                "password": "testpass123"
+            }
+            
+            response = self.session.post(f"{self.base_url}/auth/login", 
+                                       json=login_data, headers=headers)
+            
+            if response.status_code != 200:
+                self.log_result("Profile Update Duplicate Username", False, "Could not login with test user")
+                return False
+            
+            token = response.json()['access_token']
+            
+            # Try to update username to teacher's username (which should already exist)
             profile_data = {
                 "username": "teacher_test_user",  # This username should already exist
                 "current_password": "testpass123"
             }
             
-            headers = {
-                'Authorization': f'Bearer {verifier_token}',
+            auth_headers = {
+                'Authorization': f'Bearer {token}',
                 'Content-Type': 'application/json'
             }
             
             response = self.session.put(f"{self.base_url}/auth/profile", 
-                                      json=profile_data, headers=headers)
+                                      json=profile_data, headers=auth_headers)
             
             if response.status_code == 400:
                 result = response.json()
