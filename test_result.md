@@ -418,8 +418,6 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Profile Picture Support"
-    - "Self-Service Profile Editing"
     - "Dashboard Title Update"
   stuck_tasks:
     - task: "Fix Vercel deployment routing configuration"
