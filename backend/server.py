@@ -730,13 +730,17 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         system_admin_full_name = os.environ.get("SYSTEM_ADMIN_FULL_NAME", "System Administrator")
         
         if system_admin_username and system_admin_username == username:
-            # Return system admin user object
+            # Check if system admin has profile data in database
+            system_admin_profile = await db.system_admin_profile.find_one({"username": system_admin_username})
+            
+            # Return system admin user object with profile data if available
             return User(
                 id=str(uuid.uuid4()),
                 username=system_admin_username,
                 password_hash="",  # Not needed for auth check
                 role="system_admin",
-                full_name=system_admin_full_name
+                full_name=system_admin_profile.get("full_name") if system_admin_profile else system_admin_full_name,
+                profile_picture=system_admin_profile.get("profile_picture") if system_admin_profile else None
             )
     except Exception as e:
         logger.error(f"System admin user check failed: {str(e)}")
