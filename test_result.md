@@ -364,10 +364,45 @@ frontend:
       - working: "unknown"
         agent: "main"
         comment: "Implemented delete user functionality: 1) Added Delete button (trash icon) for each user, 2) Shows AlertDialog confirmation before deletion, 3) Calls DELETE /api/admin/users/{user_id} endpoint on confirmation, 4) Refreshes user list after successful deletion, 5) System admin users are already filtered out on backend so they cannot be deleted. Ready for frontend testing."
-    status_history:
       - working: "unknown"
         agent: "main"
         comment: "Updated registration component: 1) Added new roles (verifier, institution_admin, system_admin) to role selection, 2) Added institution_id field for institution_admin role, 3) Added role-specific information and guidance, 4) Updated form validation and submission. Ready for testing."
+  
+  - task: "Profile Picture Support"
+    implemented: true
+    working: "unknown"
+    file: "backend/server.py, frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "unknown"
+        agent: "main"
+        comment: "Added profile picture support: 1) BACKEND: Added profile_picture field to User model (base64 string storage in MongoDB), Created ProfileUpdate model for self-service profile updates, Added PUT /api/auth/profile endpoint with current password verification, 2) FRONTEND: Installed react-easy-crop library for image cropping, Created circular avatar display in navigation with profile picture or initials fallback, Added dropdown menu from avatar with Edit Profile option. Ready for backend testing."
+
+  - task: "Self-Service Profile Editing"
+    implemented: true
+    working: "unknown"
+    file: "frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "unknown"
+        agent: "main"
+        comment: "Implemented self-service profile editing: 1) Created ProfileEditDialog component with form to edit username, full_name, password (optional), and profile picture, 2) Created ImageCropDialog component with 1:1 aspect ratio cropping using react-easy-crop, 3) Image upload with file size validation (max 5MB), 4) Requires current password to submit any changes, 5) Shows success/error messages, 6) Updates user state after successful profile update. Ready for frontend testing."
+
+  - task: "Dashboard Title Update"
+    implemented: true
+    working: "unknown"
+    file: "frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "unknown"
+        agent: "main"
+        comment: "Updated dashboard title: Changed from conditional title (CertifiScan/Smart Attendance) to 'Smart Presence' for all user roles. Title now displays consistently across all dashboards."
 
 metadata:
   created_by: "main_agent"
