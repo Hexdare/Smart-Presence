@@ -182,6 +182,7 @@ class User(BaseModel):
     subjects: Optional[List[str]] = None  # List of subjects for teachers
     institution_id: Optional[str] = None  # For institution_admin role
     full_name: str
+    profile_picture: Optional[str] = None  # Base64 encoded image string
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class UserCreate(BaseModel):
