@@ -439,7 +439,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "QR Generation Enhancement with Subject Dropdown"
+    - "Student Attendance Categorization Frontend"
   stuck_tasks:
     - task: "Fix Vercel deployment routing configuration"
       implemented: true
