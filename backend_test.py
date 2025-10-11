@@ -4808,6 +4808,13 @@ class BackendTester:
             self.test_protected_route,
             self.test_protected_route_without_token,
             
+            # QR Generation Enhancement Tests (NEW - as requested in review)
+            self.test_teacher_subjects_endpoint,
+            self.test_principal_subjects_endpoint,
+            self.test_student_subjects_endpoint_forbidden,
+            self.test_qr_generation_with_subject_validation,
+            self.test_qr_generation_backwards_compatibility,
+            
             # QR Attendance System tests (PRIORITY - as requested)
             self.test_qr_generation_for_active_class,
             self.test_qr_generation_manual,
