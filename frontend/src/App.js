@@ -1132,34 +1132,48 @@ const GenerateQRCard = ({ onQrGenerated }) => {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="class_section">Class Section</Label>
-              <Select 
-                value={formData.class_section} 
-                onValueChange={(value) => setFormData({ ...formData, class_section: value })}
-              >
-                <SelectTrigger data-testid="qr-class-section-select">
-                  <SelectValue placeholder="Select class section" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="A5">A5</SelectItem>
-                  <SelectItem value="A6">A6</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {fetchingSubjects ? (
+              <div className="text-center py-4">Loading subjects...</div>
+            ) : (
+              <>
+                <div>
+                  <Label htmlFor="subject">Subject</Label>
+                  <Select 
+                    value={formData.subject} 
+                    onValueChange={(value) => setFormData({ ...formData, subject: value, class_code: value.substring(0, 3).toUpperCase() })}
+                  >
+                    <SelectTrigger data-testid="qr-subject-select">
+                      <SelectValue placeholder="Select subject" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableSubjects.map((subject) => (
+                        <SelectItem key={subject} value={subject}>
+                          {subject}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div>
-              <Label htmlFor="subject">Subject</Label>
-              <Input
-                id="subject"
-                type="text"
-                value={formData.subject}
-                onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                placeholder="e.g., Mathematics, Physics"
-                required
-                data-testid="qr-subject-input"
-              />
-            </div>
+                {formData.subject && (
+                  <div>
+                    <Label htmlFor="class_section">Class Section</Label>
+                    <Select 
+                      value={formData.class_section} 
+                      onValueChange={(value) => setFormData({ ...formData, class_section: value })}
+                    >
+                      <SelectTrigger data-testid="qr-class-section-select">
+                        <SelectValue placeholder="Select class section" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="A5">A5</SelectItem>
+                        <SelectItem value="A6">A6</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </>
+            )}
 
             <div>
               <Label htmlFor="class_code">Class Code</Label>
