@@ -4520,6 +4520,253 @@ class BackendTester:
             self.log_result("System Admin Multiple Fields Update", False, f"Request failed: {str(e)}")
             return False
 
+    def test_teacher_subjects_endpoint(self):
+        """Test GET /api/teacher/subjects endpoint"""
+        print("\n=== Testing Teacher Subjects Endpoint ===")
+        
+        # Test with teacher token
+        teacher_token = self.get_auth_token_for_role("teacher")
+        if not teacher_token:
+            self.log_result("Teacher Subjects Endpoint", False, "Could not get teacher auth token")
+            return False
+        
+        try:
+            headers = {'Authorization': f'Bearer {teacher_token}'}
+            response = self.session.get(f"{self.base_url}/teacher/subjects", headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if 'subjects' in result:
+                    subjects = result['subjects']
+                    if isinstance(subjects, list) and len(subjects) > 0:
+                        self.log_result("Teacher Subjects Endpoint", True, 
+                                      f"Teacher can access subjects endpoint - {len(subjects)} subjects found", 
+                                      f"Subjects: {subjects}")
+                    else:
+                        self.log_result("Teacher Subjects Endpoint", True, 
+                                      "Teacher subjects endpoint works but no subjects assigned", 
+                                      f"Response: {result}")
+                    return True
+                else:
+                    self.log_result("Teacher Subjects Endpoint", False, 
+                                  "Response missing 'subjects' field", 
+                                  f"Response: {result}")
+                    return False
+            else:
+                self.log_result("Teacher Subjects Endpoint", False, 
+                              f"Teacher subjects endpoint failed: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Teacher Subjects Endpoint", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_principal_subjects_endpoint(self):
+        """Test GET /api/teacher/subjects endpoint with principal token"""
+        print("\n=== Testing Principal Access to Teacher Subjects Endpoint ===")
+        
+        # Test with principal token
+        principal_token = self.get_auth_token_for_role("principal")
+        if not principal_token:
+            self.log_result("Principal Subjects Endpoint", False, "Could not get principal auth token")
+            return False
+        
+        try:
+            headers = {'Authorization': f'Bearer {principal_token}'}
+            response = self.session.get(f"{self.base_url}/teacher/subjects", headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if 'subjects' in result:
+                    subjects = result['subjects']
+                    self.log_result("Principal Subjects Endpoint", True, 
+                                  f"Principal can access teacher subjects endpoint - {len(subjects)} subjects found", 
+                                  f"Subjects: {subjects}")
+                    return True
+                else:
+                    self.log_result("Principal Subjects Endpoint", False, 
+                                  "Response missing 'subjects' field", 
+                                  f"Response: {result}")
+                    return False
+            else:
+                self.log_result("Principal Subjects Endpoint", False, 
+                              f"Principal subjects endpoint failed: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Principal Subjects Endpoint", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_student_subjects_endpoint_forbidden(self):
+        """Test that students cannot access GET /api/teacher/subjects endpoint"""
+        print("\n=== Testing Student Access to Teacher Subjects Endpoint (Should Fail) ===")
+        
+        # Test with student token
+        student_token = self.get_auth_token_for_role("student")
+        if not student_token:
+            self.log_result("Student Subjects Endpoint Forbidden", False, "Could not get student auth token")
+            return False
+        
+        try:
+            headers = {'Authorization': f'Bearer {student_token}'}
+            response = self.session.get(f"{self.base_url}/teacher/subjects", headers=headers)
+            
+            if response.status_code == 403:
+                self.log_result("Student Subjects Endpoint Forbidden", True, 
+                              "Students correctly forbidden from accessing teacher subjects endpoint")
+                return True
+            else:
+                self.log_result("Student Subjects Endpoint Forbidden", False, 
+                              f"Expected 403, got {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Student Subjects Endpoint Forbidden", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_qr_generation_with_subject_validation(self):
+        """Test QR generation with subject validation - teacher can only create QR for their subjects"""
+        print("\n=== Testing QR Generation Subject Validation ===")
+        
+        teacher_token = self.get_auth_token_for_role("teacher")
+        if not teacher_token:
+            self.log_result("QR Generation Subject Validation", False, "Could not get teacher auth token")
+            return False
+        
+        headers = {
+            'Authorization': f'Bearer {teacher_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        # First get teacher's subjects
+        try:
+            subjects_response = self.session.get(f"{self.base_url}/teacher/subjects", headers=headers)
+            if subjects_response.status_code != 200:
+                self.log_result("QR Generation Subject Validation", False, "Could not get teacher subjects")
+                return False
+            
+            teacher_subjects = subjects_response.json().get('subjects', [])
+            if not teacher_subjects:
+                self.log_result("QR Generation Subject Validation", False, "Teacher has no subjects assigned")
+                return False
+            
+            # Test QR generation with valid subject (teacher's subject)
+            valid_subject = teacher_subjects[0]  # Use first subject
+            qr_data = {
+                "class_section": "A5",
+                "subject": valid_subject,
+                "class_code": "TEST",
+                "time_slot": "09:30-10:30"
+            }
+            
+            response = self.session.post(f"{self.base_url}/qr/generate", json=qr_data, headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if 'session_id' in result and 'qr_image' in result:
+                    self.log_result("QR Generation Valid Subject", True, 
+                                  f"Teacher can generate QR for their subject: {valid_subject}", 
+                                  f"Session ID: {result['session_id']}")
+                else:
+                    self.log_result("QR Generation Valid Subject", False, 
+                                  "QR generation response missing required fields", 
+                                  f"Response: {result}")
+                    return False
+            else:
+                self.log_result("QR Generation Valid Subject", False, 
+                              f"QR generation failed for valid subject: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+            
+            # Test QR generation with invalid subject (not teacher's subject)
+            invalid_subject = "Unauthorized Subject"
+            qr_data_invalid = {
+                "class_section": "A5",
+                "subject": invalid_subject,
+                "class_code": "TEST",
+                "time_slot": "09:30-10:30"
+            }
+            
+            response = self.session.post(f"{self.base_url}/qr/generate", json=qr_data_invalid, headers=headers)
+            
+            if response.status_code == 403:
+                self.log_result("QR Generation Invalid Subject", True, 
+                              f"Teacher correctly forbidden from generating QR for unauthorized subject: {invalid_subject}")
+                return True
+            else:
+                self.log_result("QR Generation Invalid Subject", False, 
+                              f"Expected 403 for unauthorized subject, got {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("QR Generation Subject Validation", False, f"Request failed: {str(e)}")
+            return False
+
+    def test_qr_generation_backwards_compatibility(self):
+        """Test that existing QR generation still works with subject dropdown selection"""
+        print("\n=== Testing QR Generation Backwards Compatibility ===")
+        
+        teacher_token = self.get_auth_token_for_role("teacher")
+        if not teacher_token:
+            self.log_result("QR Generation Backwards Compatibility", False, "Could not get teacher auth token")
+            return False
+        
+        headers = {
+            'Authorization': f'Bearer {teacher_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        try:
+            # Get teacher's subjects first
+            subjects_response = self.session.get(f"{self.base_url}/teacher/subjects", headers=headers)
+            if subjects_response.status_code != 200:
+                self.log_result("QR Generation Backwards Compatibility", False, "Could not get teacher subjects")
+                return False
+            
+            teacher_subjects = subjects_response.json().get('subjects', [])
+            if not teacher_subjects:
+                self.log_result("QR Generation Backwards Compatibility", False, "Teacher has no subjects assigned")
+                return False
+            
+            # Test original QR generation endpoint with teacher's subject
+            qr_data = {
+                "class_section": "A6",
+                "subject": teacher_subjects[0],  # Use teacher's first subject
+                "class_code": "BC",
+                "time_slot": "10:30-11:30"
+            }
+            
+            response = self.session.post(f"{self.base_url}/qr/generate", json=qr_data, headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                required_fields = ['session_id', 'qr_image', 'qr_data', 'expires_at', 'class_section', 'subject', 'time_slot']
+                missing_fields = [field for field in required_fields if field not in result]
+                
+                if not missing_fields:
+                    self.log_result("QR Generation Backwards Compatibility", True, 
+                                  "Original QR generation endpoint works with all required fields", 
+                                  f"Session ID: {result['session_id']}, Subject: {result['subject']}")
+                    return True
+                else:
+                    self.log_result("QR Generation Backwards Compatibility", False, 
+                                  f"QR generation response missing fields: {missing_fields}", 
+                                  f"Response: {result}")
+                    return False
+            else:
+                self.log_result("QR Generation Backwards Compatibility", False, 
+                              f"QR generation failed: {response.status_code}", 
+                              f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("QR Generation Backwards Compatibility", False, f"Request failed: {str(e)}")
+            return False
+
     def run_all_tests(self):
         """Run all backend tests"""
         print(f"\n{'='*60}")
