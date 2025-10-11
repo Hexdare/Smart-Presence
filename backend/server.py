@@ -1303,6 +1303,17 @@ async def get_active_classes(current_user: User = Depends(get_current_user)):
     active_classes = get_current_active_classes(current_user.subjects)
     return {"active_classes": active_classes, "current_time": datetime.now(timezone.utc).isoformat()}
 
+# New endpoint to get teacher's enrolled subjects
+@api_router.get("/teacher/subjects")
+async def get_teacher_subjects(current_user: User = Depends(get_current_user)):
+    if current_user.role not in ["teacher", "principal"]:
+        raise HTTPException(status_code=403, detail="Only teachers and principals can access this endpoint")
+    
+    if not current_user.subjects:
+        return {"subjects": [], "message": "No subjects assigned"}
+    
+    return {"subjects": current_user.subjects}
+
 # Enhanced QR generation for active classes
 @api_router.post("/qr/generate-for-active-class")
 async def generate_qr_for_active_class(class_info: dict, current_user: User = Depends(get_current_user)):
