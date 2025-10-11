@@ -1156,21 +1156,49 @@ const GenerateQRCard = ({ onQrGenerated }) => {
                 </div>
 
                 {formData.subject && (
-                  <div>
-                    <Label htmlFor="class_section">Class Section</Label>
-                    <Select 
-                      value={formData.class_section} 
-                      onValueChange={(value) => setFormData({ ...formData, class_section: value })}
-                    >
-                      <SelectTrigger data-testid="qr-class-section-select">
-                        <SelectValue placeholder="Select class section" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="A5">A5</SelectItem>
-                        <SelectItem value="A6">A6</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <>
+                    <div>
+                      <Label htmlFor="class_section">Class Section</Label>
+                      <Select 
+                        value={formData.class_section} 
+                        onValueChange={(value) => setFormData({ ...formData, class_section: value })}
+                      >
+                        <SelectTrigger data-testid="qr-class-section-select">
+                          <SelectValue placeholder="Select class section" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="A5">A5</SelectItem>
+                          <SelectItem value="A6">A6</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="class_code">Class Code</Label>
+                      <Input
+                        id="class_code"
+                        type="text"
+                        value={formData.class_code}
+                        onChange={(e) => setFormData({ ...formData, class_code: e.target.value })}
+                        placeholder="e.g., MC, PHY, ENG"
+                        required
+                        data-testid="qr-class-code-input"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="time_slot">Time Slot</Label>
+                      <Input
+                        id="time_slot"
+                        type="text"
+                        value={formData.time_slot}
+                        onChange={(e) => setFormData({ ...formData, time_slot: e.target.value })}
+                        placeholder="e.g., 09:30-10:30"
+                        required
+                        data-testid="qr-time-slot-input"
+                      />
+                    </div>
+                  </>
                 )}
               </>
             )}
