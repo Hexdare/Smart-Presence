@@ -1759,39 +1759,96 @@ const QRSessionsList = ({ sessions }) => {
 };
 
 const AttendanceList = ({ records }) => {
+  const [activeSubjectTab, setActiveSubjectTab] = useState("");
+  
+  // Group records by subject
+  const recordsBySubject = useMemo(() => {
+    const grouped = records.reduce((acc, record) => {
+      const subject = record.subject;
+      if (!acc[subject]) {
+        acc[subject] = [];
+      }
+      acc[subject].push(record);
+      return acc;
+    }, {});
+    
+    // Sort records within each subject by timestamp (most recent first)
+    Object.keys(grouped).forEach(subject => {
+      grouped[subject].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    });
+    
+    return grouped;
+  }, [records]);
+  
+  const subjects = Object.keys(recordsBySubject);
+  
+  // Set initial active tab to first subject
+  useEffect(() => {
+    if (subjects.length > 0 && !activeSubjectTab) {
+      setActiveSubjectTab(subjects[0]);
+    }
+  }, [subjects, activeSubjectTab]);
+  
+  if (records.length === 0) {
+    return (
+      <Card className="bg-white/80 backdrop-blur-sm shadow-lg">
+        <CardHeader>
+          <CardTitle>My Attendance</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-gray-500 text-center py-8">No attendance records found.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+  
   return (
     <Card className="bg-white/80 backdrop-blur-sm shadow-lg">
       <CardHeader>
-        <CardTitle>Attendance Records</CardTitle>
+        <CardTitle>My Attendance</CardTitle>
+        <p className="text-sm text-gray-600">Total records: {records.length}</p>
       </CardHeader>
       <CardContent>
-        {records.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">No attendance records found.</p>
-        ) : (
-          <div className="space-y-4">
-            {records.map((record) => (
-              <div key={record.id} className="border rounded-lg p-4 bg-white/50">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-medium">{record.subject}</h3>
-                    <p className="text-sm text-gray-600">
-                      Student: {record.student_name} ({record.student_id})
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {record.class_section} • {record.time_slot}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <Badge className="bg-green-600">Present</Badge>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(record.timestamp).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              </div>
+        <Tabs value={activeSubjectTab} onValueChange={setActiveSubjectTab} className="w-full">
+          <TabsList className="grid w-full bg-white/60 backdrop-blur-sm" style={{ gridTemplateColumns: `repeat(${subjects.length}, minmax(0, 1fr))` }}>
+            {subjects.map((subject) => (
+              <TabsTrigger key={subject} value={subject} className="text-xs sm:text-sm">
+                {subject}
+                <Badge variant="secondary" className="ml-1 text-xs">
+                  {recordsBySubject[subject].length}
+                </Badge>
+              </TabsTrigger>
             ))}
-          </div>
-        )}
+          </TabsList>
+          
+          {subjects.map((subject) => (
+            <TabsContent key={subject} value={subject} className="mt-4">
+              <div className="space-y-4">
+                {recordsBySubject[subject].map((record) => (
+                  <div key={record.id} className="border rounded-lg p-4 bg-white/50">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-medium">{record.subject}</h3>
+                        <p className="text-sm text-gray-600">
+                          {record.class_section} • {record.time_slot}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Class Code: {record.class_code}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <Badge className="bg-green-600">Present</Badge>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {new Date(record.timestamp).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </TabsContent>
+          ))}
+        </Tabs>
       </CardContent>
     </Card>
   );
