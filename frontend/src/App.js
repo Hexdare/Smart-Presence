@@ -1051,6 +1051,25 @@ const GenerateQRCard = ({ onQrGenerated }) => {
   const [availableSubjects, setAvailableSubjects] = useState([]);
   const [fetchingSubjects, setFetchingSubjects] = useState(true);
 
+  // Fetch teacher's subjects on component mount
+  useEffect(() => {
+    const fetchSubjects = async () => {
+      try {
+        const response = await axios.get(`${API}/teacher/subjects`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+        });
+        setAvailableSubjects(response.data.subjects || []);
+      } catch (error) {
+        setError("Failed to load subjects");
+        setAvailableSubjects([]);
+      } finally {
+        setFetchingSubjects(false);
+      }
+    };
+
+    fetchSubjects();
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
