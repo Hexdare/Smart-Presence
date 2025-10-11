@@ -282,6 +282,18 @@ backend:
         agent: "main"
         comment: "Updated GET /api/admin/users endpoint to filter out system_admin users from the list: 1) Uses MongoDB query filter {role: {$ne: 'system_admin'}} to exclude system admins, 2) Prevents system admin users from being shown in the UI. Ready for backend testing."
 
+  - task: "QR Generation Enhancement with Subject Dropdown"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "QR GENERATION ENHANCEMENT TESTING COMPLETE ✅: Comprehensive testing of new QR generation features completed with 100% success rate (5/5 tests passed). DETAILED TEST RESULTS: 1) ✅ GET /api/teacher/subjects ENDPOINT: Teachers can access endpoint and retrieve their enrolled subjects (3 subjects: Updated Mathematics, Updated Physics, Chemistry), Principals can access endpoint and retrieve their subjects (2 subjects: Mathematics, Physics), Students correctly forbidden with 403 error, 2) ✅ SUBJECT VALIDATION: Teachers can generate QR codes ONLY for their assigned subjects - valid subject (Updated Mathematics) generates QR successfully with session ID, unauthorized subjects correctly rejected with 403 error, 3) ✅ BACKWARDS COMPATIBILITY: Original POST /api/qr/generate endpoint works perfectly with all required fields (session_id, qr_image, qr_data, expires_at, class_section, subject, time_slot), 4) ✅ AUTHORIZATION: Endpoint works for teachers and principals, fails for students as designed, 5) ✅ SUBJECT DROPDOWN INTEGRATION: Backend ready for frontend subject dropdown selection instead of manual input. All QR generation enhancement features are production-ready and fully tested."
+
 frontend:
   - task: "In-app QR Camera Scanner Implementation"
     implemented: true
