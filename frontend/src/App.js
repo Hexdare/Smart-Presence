@@ -1048,6 +1048,8 @@ const GenerateQRCard = ({ onQrGenerated }) => {
   const [loading, setLoading] = useState(false);
   const [qrResult, setQrResult] = useState(null);
   const [error, setError] = useState("");
+  const [availableSubjects, setAvailableSubjects] = useState([]);
+  const [fetchingSubjects, setFetchingSubjects] = useState(true);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
