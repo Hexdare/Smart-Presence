@@ -1203,40 +1203,16 @@ const GenerateQRCard = ({ onQrGenerated }) => {
               </>
             )}
 
-            <div>
-              <Label htmlFor="class_code">Class Code</Label>
-              <Input
-                id="class_code"
-                type="text"
-                value={formData.class_code}
-                onChange={(e) => setFormData({ ...formData, class_code: e.target.value })}
-                placeholder="e.g., MC, PHY, ENG"
-                required
-                data-testid="qr-class-code-input"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="time_slot">Time Slot</Label>
-              <Input
-                id="time_slot"
-                type="text"
-                value={formData.time_slot}
-                onChange={(e) => setFormData({ ...formData, time_slot: e.target.value })}
-                placeholder="e.g., 09:30-10:30"
-                required
-                data-testid="qr-time-slot-input"
-              />
-            </div>
-
-            <Button 
-              type="submit" 
-              className="w-full bg-indigo-600 hover:bg-indigo-700" 
-              disabled={loading}
-              data-testid="generate-qr-submit-button"
-            >
-              {loading ? "Generating..." : "Generate QR Code"}
-            </Button>
+            {formData.subject && (
+              <Button 
+                type="submit" 
+                className="w-full bg-indigo-600 hover:bg-indigo-700" 
+                disabled={loading || !formData.class_section || !formData.time_slot || !formData.class_code}
+                data-testid="generate-qr-submit-button"
+              >
+                {loading ? "Generating..." : "Generate QR Code"}
+              </Button>
+            )}
           </form>
         )}
       </CardContent>
